@@ -28,17 +28,17 @@ public class NeuroServerConnection {
 	public static Map<Command, String> commands = new HashMap<Command, String>();
 	
 	// A socket connection to NeuroServer
-    private Socket socket;
+	private Socket socket;
 
-    // The input and output streams for this connection
-    private BufferedReader input;
-    private DataOutputStream output;
+	// The input and output streams for this connection
+	private BufferedReader input;
+	private DataOutputStream output;
     
-    // The default host and port to use for this connection
-    private String HOST = "localhost";
-    private int PORT = 8336;
+	// The default host and port to use for this connection
+	private String HOST = "localhost";
+	private int PORT = 8336;
 
-    private boolean connected = false;
+	private boolean connected = false;
     
 	// listeners waiting for line input
 	protected List<NeuroServerInputListener> listeners = new CopyOnWriteArrayList<NeuroServerInputListener>();
