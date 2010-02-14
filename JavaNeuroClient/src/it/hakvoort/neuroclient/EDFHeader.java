@@ -69,7 +69,7 @@ public class EDFHeader implements NeuroServerHeader {
 	
 	public void setMainHeader(byte[] main) {
 		if(main.length != 256) {
-			System.err.println(String.format("Invalid EDF main header: %s", main));
+			System.err.println(String.format("Invalid EDF main header: %s", new String(main)));
 			return;
 		}
 		
@@ -96,7 +96,7 @@ public class EDFHeader implements NeuroServerHeader {
 		}
 		
 		if(channelData.length != 256 * getNumChannels()) {
-			System.err.println(String.format("Invalid EDF channel header: %s", channelData));
+			System.err.println(String.format("Invalid EDF channel header: %s", new String(channelData)));
 			return;
 		}
 		
