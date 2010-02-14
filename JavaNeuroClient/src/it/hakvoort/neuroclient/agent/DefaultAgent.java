@@ -115,17 +115,23 @@ public abstract class DefaultAgent implements Agent, NeuroServerInputListener {
 		current = command;
 
 		connection.sendCommand(command, value);
-
-		if (!finished) {
+		
+		if(!finished) {
 			synchronized (this) {
 				try {
-					this.wait();
+					this.wait(3000);
+					
+					if(!finished) {
+						System.err.println("Timeout during executing command, closing connection.");
+						connection.removeListener(this);
+						connection.disconnect();
+					}
 				} catch (InterruptedException e) {
 					e.printStackTrace();
 				}
 			}
 		}
-
+		
 		finished = false;
 		current = Command.NONE;
 		return reply;
@@ -134,14 +140,14 @@ public abstract class DefaultAgent implements Agent, NeuroServerInputListener {
 	@Override
 	public void receivedLine(String line) {
 		switch (current) {
-		case ROLE:
-			parseRole(line.toLowerCase());
-			break;
-		case STATUS:
-			parseStatus(line.toLowerCase());
-			break;
-		default:
-			parseDefault(line.toLowerCase());
+			case ROLE:
+				parseRole(line.toLowerCase());
+				break;
+			case STATUS:
+				parseStatus(line.toLowerCase());
+				break;
+			default:
+				parseDefault(line.toLowerCase());
 		}
 
 		if (finished) {
