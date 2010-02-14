@@ -8,6 +8,7 @@ import it.hakvoort.neuroclient.reply.HeaderReply;
 import it.hakvoort.neuroclient.reply.Reply;
 import it.hakvoort.neuroclient.reply.Reply.ResponseCode;
 
+import java.nio.ByteBuffer;
 import java.util.List;
 import java.util.StringTokenizer;
 import java.util.concurrent.CopyOnWriteArrayList;
@@ -133,12 +134,17 @@ public class DisplayAgent extends DefaultAgent {
 				reply = null;
 			}
 		} else {
-			byte[] main = line.substring(0, 256).getBytes();
-			byte[] channels = line.substring(256).getBytes();
-			
+			ByteBuffer buffer = ByteBuffer.wrap(line.getBytes());
 			EDFHeader header = new EDFHeader();
 			
+			byte[] main 	= new byte[256];
+			
+			buffer.get(main);
 			header.setMainHeader(main);
+			
+			byte[] channels = new byte[header.getNumChannels() * 256];
+
+			buffer.get(channels);
 			header.setChannelHeader(channels);
 			
 			((HeaderReply) reply).header = header;
