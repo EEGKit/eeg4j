@@ -133,7 +133,15 @@ public class DisplayAgent extends DefaultAgent {
 				reply = null;
 			}
 		} else {
-			((HeaderReply) reply).header = new EDFHeader(line);
+			byte[] main = line.substring(0, 256).getBytes();
+			byte[] channels = line.substring(256).getBytes();
+			
+			EDFHeader header = new EDFHeader();
+			
+			header.setMainHeader(main);
+			header.setChannelHeader(channels);
+			
+			((HeaderReply) reply).header = header;
 			finished = true;
 		}
 	}

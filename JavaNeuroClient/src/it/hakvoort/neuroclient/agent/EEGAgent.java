@@ -1,9 +1,11 @@
 package it.hakvoort.neuroclient.agent;
 
-import it.hakvoort.neuroclient.EDFHeader;
+import it.hakvoort.neuroclient.NeuroServerHeader;
 import it.hakvoort.neuroclient.NeuroServerPacket;
 import it.hakvoort.neuroclient.NeuroServerConnection.Command;
+import it.hakvoort.neuroclient.reply.HeaderReply;
 import it.hakvoort.neuroclient.reply.Reply;
+import it.hakvoort.neuroclient.reply.Reply.ResponseCode;
 
 /**
  * 
@@ -28,8 +30,13 @@ public class EEGAgent extends DefaultAgent {
 		setRole(Role.EEG);
 	}
 	
-	public Reply setHeader(EDFHeader header) {
-		return executeCommand(Command.SET_HEADER, header.toString());
+	public Reply setHeader(NeuroServerHeader header) {
+		if(!header.isValid()) {
+			System.err.println(String.format("Header not valid."));
+			return new HeaderReply(ResponseCode.ERROR, null);
+		}
+		
+		return executeCommand(Command.SET_HEADER, header.getData());
 	}
 	
 	public void sendPacket(NeuroServerPacket packet) {

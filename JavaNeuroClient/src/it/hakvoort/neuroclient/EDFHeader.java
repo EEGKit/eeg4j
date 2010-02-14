@@ -1,5 +1,6 @@
 package it.hakvoort.neuroclient;
 
+import java.nio.ByteBuffer;
 import java.text.Format;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
@@ -13,401 +14,399 @@ import java.util.Properties;
  * @author Gido Hakvoort (gido@hakvoort.it)
  * 
  */
-public class EDFHeader {
+public class EDFHeader implements NeuroServerHeader {
 	
-	// version of this data format (0)
-	public String version = null;
+	public static byte BYTE_SPACE = 0x20;
+	
+	// if this is a valid header
+	public boolean valid = false;
+	
+	// version of this data format
+	public byte[] version = new byte[8];
 
 	// local patient identification
-	public String patient = null;
+	public byte[] patient = new byte[80];
 	
 	// local recording identification
-	public String recording = null;
+	public byte[] recording = new byte[80];
 	
 	// startdate of recording (dd.mm.yy)
-	public String startdate = null;
+	public byte[] startdate = new byte[8];
 	
 	// starttime of recording (hh.mm.ss)
-	public String starttime = null;
+	public byte[] starttime = new byte[8];
 	
 	// number of bytes in header record
-	public String length = null;
+	public byte[] length = new byte[8];
 	
 	// reserved
-	public String reserved = null;
+	public byte[] reserved = new byte[44];
 	
 	// number of data records (-1 if unknown)
-	public String numrecords = null;
+	public byte[] numRecords = new byte[8];
 	
 	// duration of a data record, in seconds
-	public String duration = null;
+	public byte[] duration = new byte[8];
 	
-	// number of signals (ns) in data record
-	public String numsignals = null;
+	// number of channels (ns) in data record
+	public byte[] numChannels = new byte[4];
 	
-	// ns * label
-	public List<String> signal_label = new ArrayList<String>();
-	
-	// ns * transducer type (e.g. AgAgCl electrode)
-	public List<String> signal_transducerType = new ArrayList<String>();
-	
-	// ns * physical dimension (e.g. uV)
-	public List<String> signal_physicalDimension = new ArrayList<String>();
-	
-	// ns * physical minimum (e.g. -500 or 34)
-	public List<String> signal_physicalMinimum = new ArrayList<String>();
-	
-	// ns * physical maximum (e.g. 500 or 40)
-	public List<String> signal_physicalMaximum = new ArrayList<String>();
-	
-	// ns * digital minimum (e.g. -2048)
-	public List<String> signal_digitalMinimum = new ArrayList<String>();
-	
-	// ns * digital maximum (e.g. 2047)
-	public List<String> signal_digitalMaximum = new ArrayList<String>();
-	
-	// ns * prefiltering (e.g. HP:0.1Hz LP:75Hz)
-	public List<String> signal_prefiltering = new ArrayList<String>();
-	
-	// ns * nr of samples in each data record
-	public List<String> signal_numsamples = new ArrayList<String>();
-	
-	// ns * reserved
-	public List<String> signal_reserved = new ArrayList<String>();
-		
+	// ns (the channels)
+	public List<EDFChannel> channels = new ArrayList<EDFChannel>();
+
 	public EDFHeader() {
 		
 	}
 	
-	public EDFHeader(Properties headerproperties) {
-		parseHeaderProperties(headerproperties);
+	public EDFHeader(byte[] main) {
+		setMainHeader(main);
+	}
+
+	public EDFHeader(Properties properties) {
+		setMainHeader(properties);
+		setChannelHeader(properties);
 	}
 	
-	public EDFHeader(String headerLine) {
-		parseHeaderLine(headerLine);
+	public void setMainHeader(byte[] main) {
+		if(main.length != 256) {
+			System.err.println(String.format("Invalid EDF main header: %s", main));
+			return;
+		}
+		
+		ByteBuffer buffer = ByteBuffer.wrap(main);
+		
+		buffer.get(version);
+		buffer.get(patient);		
+		buffer.get(recording);
+		buffer.get(startdate);
+		buffer.get(starttime);
+		buffer.get(length);
+		buffer.get(reserved);
+		buffer.get(numRecords);
+		buffer.get(duration);
+		buffer.get(numChannels);
+		
+		valid = true;
 	}
 	
-	private void parseHeaderProperties(Properties properties) {
+	public void setChannelHeader(byte[] channelData) {
+		if(!isValid()) {
+			System.err.println(String.format("Main header should be set before setting channel header"));
+			return;	
+		}
+		
+		if(channelData.length != 256 * getNumChannels()) {
+			System.err.println(String.format("Invalid EDF channel header: %s", channelData));
+			return;
+		}
+		
+		ByteBuffer buffer = ByteBuffer.wrap(channelData);
+
+		for(int c = 0, offset = getNumChannels()-1; c < getNumChannels(); c++, offset--) {
+			EDFChannel channel = new EDFChannel();
+			
+			buffer.position(c*16);
+			buffer.get(channel.label);
+			
+			buffer.position(buffer.position() + offset*16 + c*80);
+			buffer.get(channel.transducerType);
+			
+			buffer.position(buffer.position() + offset*80 + c*8);
+			buffer.get(channel.physicalDimension);
+			
+			buffer.position(buffer.position() + offset*8 + c*8);
+			buffer.get(channel.physicalMinimum);
+			
+			buffer.position(buffer.position() + offset*8 + c*8);
+			buffer.get(channel.physicalMaximum);
+			
+			buffer.position(buffer.position() + offset*8 + c*8);
+			buffer.get(channel.digitalMinimum);
+			
+			buffer.position(buffer.position() + offset*8 + c*8);
+			buffer.get(channel.digitalMaximum);
+			
+			buffer.position(buffer.position() + offset*8 + c*80);
+			buffer.get(channel.prefiltering);
+			
+			buffer.position(buffer.position() + offset*80 + c*8);
+			buffer.get(channel.numSamples);
+			
+			buffer.position(buffer.position() + offset*8 + c*32);
+			buffer.get(channel.reserved);
+			
+			channels.add(channel);
+			buffer.rewind();
+		}
+	}
+	
+	private void setMainHeader(Properties properties) {
 		Date date = new Date();
 		Format dateFormat = new SimpleDateFormat("dd.MM.yy");
 		Format timeFormat = new SimpleDateFormat("HH.mm.ss");
 
-		version = properties.getProperty("version", "").trim();
-		patient = properties.getProperty("patient", "").trim();
-		recording = properties.getProperty("recording", "").trim();
+		String value = null;
+		
+		value = properties.getProperty("version", "").trim();
+		version = toByteArray(value, 8, BYTE_SPACE);
+		
+		value = properties.getProperty("patient", "").trim();
+		patient = toByteArray(value, 80, BYTE_SPACE);
+		
+		value = properties.getProperty("recording", "").trim();
+		recording = toByteArray(value, 80, BYTE_SPACE);
+		
+		value = properties.getProperty("startdate", "").trim();
+		if(value.toUpperCase().equals("AUTO")) {
+			startdate = toByteArray(dateFormat.format(date), 8, BYTE_SPACE);
+		} else {
+			startdate = toByteArray(value, 8, BYTE_SPACE);
+		}
+		
+		value = properties.getProperty("starttime", "").trim();
+		if(value.toUpperCase().equals("AUTO")) {
+			starttime = toByteArray(timeFormat.format(date), 8, BYTE_SPACE);
+		} else {
+			starttime = toByteArray(value, 8, BYTE_SPACE);
+		}
+		
+		value = properties.getProperty("reserved", "").trim();
+		reserved = toByteArray(value, 44, BYTE_SPACE);
 
-		String tmp_startdate = properties.getProperty("startdate", "").trim();
-		if(tmp_startdate.toUpperCase().equals("AUTO")) {
-			startdate = dateFormat.format(date);
+		value = properties.getProperty("duration", "").trim();
+		duration = toByteArray(value, 8, BYTE_SPACE);
+		
+		value = properties.getProperty("number.of.records", "").trim();
+		numRecords = toByteArray(value, 8, BYTE_SPACE);
+		
+		value = properties.getProperty("number.of.channels", "").trim();
+		numChannels = toByteArray(value, 4, BYTE_SPACE);
+		
+		value = properties.getProperty("length", "");
+		if(value.toUpperCase().equals("AUTO")) {
+			length = toByteArray(String.valueOf((getNumChannels()+1)*256), 8, BYTE_SPACE);
 		} else {
-			startdate = tmp_startdate;
+			length = toByteArray(value, 8, BYTE_SPACE);;
 		}
 		
-		String tmp_starttime = properties.getProperty("starttime", "").trim();
-		if(tmp_startdate.toUpperCase().equals("AUTO")) {
-			starttime = timeFormat.format(date);
-		} else {
-			starttime = tmp_starttime;
-		}
-		
-		reserved = properties.getProperty("reserved", "").trim();
-		numrecords = properties.getProperty("number.of.records", "").trim();
-		duration = properties.getProperty("duration", "").trim();
-		numsignals = properties.getProperty("number.of.signals", "").trim();
-		
-		String values = null;
-		
-		values = properties.getProperty("label", "");
-		for(String value : values.split(",")) {
-			signal_label.add(value.trim());
-		}
-		
-		values = properties.getProperty("transducer.type", "");
-		for(String value : values.split(",")) {
-			signal_transducerType.add(value.trim());
-		}
-		
-		values = properties.getProperty("physical.dimension", "");
-		for(String value : values.split(",")) {
-			signal_physicalDimension.add(value.trim());
-		}
-		
-		values = properties.getProperty("physical.minimum", "");
-		for(String value : values.split(",")) {
-			signal_physicalMinimum.add(value.trim());
-		}
-		
-		values = properties.getProperty("physical.maximum", "");
-		for(String value : values.split(",")) {
-			signal_physicalMaximum.add(value.trim());
-		}
-		
-		values = properties.getProperty("digital.minimum", "");
-		for(String value : values.split(",")) {
-			signal_digitalMinimum.add(value.trim());
-		}
-		
-		values = properties.getProperty("digital.maximum", "");
-		for(String value : values.split(",")) {
-			signal_digitalMaximum.add(value.trim());
-		}
-		
-		values = properties.getProperty("prefiltering", "");
-		for(String value : values.split(",")) {
-			signal_prefiltering.add(value.trim());
-		}
-		
-		values = properties.getProperty("number.of.samples", "");
-		for(String value : values.split(",")) {
-			signal_numsamples.add(value.trim());
-		}
-				
-		values = properties.getProperty("reserved.signal", "");
-		for(String value : values.split(",")) {
-			signal_reserved.add(value.trim());
-		}
-
-		String tmp_length = properties.getProperty("length", "");
-		if(tmp_length.toUpperCase().equals("AUTO")) {
-			length = String.valueOf(toString().getBytes().length);
-		} else {
-			length = tmp_length.trim();
-		}
+		valid = true;
 	}
 	
-	private void parseHeaderLine(String header) {
-		if(header.length() < 256) {
-			System.err.println(String.format("Invalid EDF Header: %s", header));
+	private void setChannelHeader(Properties properties) {
+		if(!isValid()) {
+			System.err.println(String.format("Main header should be set before setting channel header"));
 			return;
 		}
 		
-		version 	= header.substring(0, 8);
-		patient 	= header.substring(8, 88);
-		recording 	= header.substring(88, 168);
-		startdate 	= header.substring(168, 176);
-		starttime 	= header.substring(176, 184);
-		length 		= header.substring(184, 192);
-		reserved 	= header.substring(192, 236);
-		numrecords 	= header.substring(236, 244);
-		duration	= header.substring(244, 252);
-		numsignals 	= header.substring(252, 256);
+		String[] label 				= properties.getProperty("label", "").split(",");
+		String[] transducerType 	= properties.getProperty("transducer.type", "").split(",");
+		String[] physicalDimension 	= properties.getProperty("physical.dimension", "").split(",");
+		String[] physicalMinimum 	= properties.getProperty("physical.minimum", "").split(",");
+		String[] physicalMaximum 	= properties.getProperty("physical.maximum", "").split(",");
+		String[] digitalMinimum 	= properties.getProperty("digital.minimum", "").split(",");
+		String[] digitalMaximum 	= properties.getProperty("digital.maximum", "").split(",");
+		String[] prefiltering 		= properties.getProperty("prefiltering", "").split(",");
+		String[] numSamples 		= properties.getProperty("number.of.samples", "").split(",");
+		String[] reserved 			= properties.getProperty("reserved.signal", "").split(",");
+		
+		boolean complete = true;
+		
+		if(label.length < getNumChannels()) {
+			System.err.println(String.format("Number of channels is set to %s, but only %s of 'label'.", getNumChannels(), label.length));
+			complete = false;
+		}
+		
+		if(transducerType.length < getNumChannels()) {
+			System.err.println(String.format("Number of channels is set to %s, but only %s of 'transducer.type'.", getNumChannels(), transducerType.length));
+			complete = false;
+		}
 
-		int number = Integer.parseInt(numsignals.trim());
-		
-		int offset = 256;
-		for(int i=0, j=1; i<number; i++, j++) {
-			signal_label.add(header.substring(offset+(16*i), offset+(16*j)));
-		}
-		
-		offset += (16*number);
-		for(int i=0, j=1; i<number; i++, j++) {
-			signal_transducerType.add(header.substring(offset+(80*i), offset+(80*j)));
+		if(physicalDimension.length < getNumChannels()) {
+			System.err.println(String.format("Number of channels is set to %s, but only %s of 'physical.dimension'.", getNumChannels(), physicalDimension.length));
+			complete = false;
 		}
 
-		offset += (80*number);
-		for(int i=0, j=1; i<number; i++, j++) {
-			signal_physicalDimension.add(header.substring(offset+(8*i), offset+(8*j)));
+		if(physicalMinimum.length < getNumChannels()) {
+			System.err.println(String.format("Number of channels is set to %s, but only %s of 'physical.minimum'.", getNumChannels(), physicalMinimum.length));
+			complete = false;
 		}
 		
-		offset += (8*number);
-		for(int i=0, j=1; i<number; i++, j++) {
-			signal_physicalMinimum.add(header.substring(offset+(8*i), offset+(8*j)));
+		if(physicalMaximum.length < getNumChannels()) {
+			System.err.println(String.format("Number of channels is set to %s, but only %s of 'physical.maximum'.", getNumChannels(), physicalMaximum.length));
+			complete = false;
 		}
 		
-		offset += (8*number);
-		for(int i=0, j=1; i<number; i++, j++) {
-			signal_physicalMaximum.add(header.substring(offset+(8*i), offset+(8*j)));
+		if(digitalMinimum.length < getNumChannels()) {
+			System.err.println(String.format("Number of channels is set to %s, but only %s of 'digital.minimum'.", getNumChannels(), digitalMinimum.length));
+			complete = false;
 		}
 		
-		offset += (8*number);
-		for(int i=0, j=1; i<number; i++, j++) {
-			signal_digitalMinimum.add(header.substring(offset+(8*i), offset+(8*j)));
+		if(digitalMaximum.length < getNumChannels()) {
+			System.err.println(String.format("Number of channels is set to %s, but only %s of 'digital.maximum'.", getNumChannels(), digitalMaximum.length));
+			complete = false;
 		}
 		
-		offset += (8*number);
-		for(int i=0, j=1; i<number; i++, j++) {
-			signal_digitalMaximum.add(header.substring(offset+(8*i), offset+(8*j)));
+		if(prefiltering.length < getNumChannels()) {
+			System.err.println(String.format("Number of channels is set to %s, but only %s of 'prefiltering'.", getNumChannels(), prefiltering.length));
+			complete = false;
 		}
 		
-		offset += (8*number);
-		for(int i=0, j=1; i<number; i++, j++) {
-			signal_prefiltering.add(header.substring(offset+(80*i), offset+(80*j)));
+		if(numSamples.length < getNumChannels()) {
+			System.err.println(String.format("Number of channels is set to %s, but only %s of 'number.of.samples'.", getNumChannels(), numSamples.length));
+			complete = false;
+		}
+
+		if(reserved.length < getNumChannels()) {
+			System.err.println(String.format("Number of channels is set to %s, but only %s of 'reserved'.", getNumChannels(), reserved.length));
+			complete = false;
 		}
 		
-		offset += (80*number);
-		for(int i=0, j=1; i<number; i++, j++) {
-			signal_numsamples.add(header.substring(offset+(8*i), offset+(8*j)));
+		if(!complete) {
+			valid = false;
+			return;
 		}
 		
-		offset += (8*number);
-		for(int i=0, j=1; i<number; i++, j++) {
-			signal_reserved.add(header.substring(offset+(32*i), offset+(32*j)));
+		for(int i = 0; i < getNumChannels(); i++) {
+			EDFChannel channel = new EDFChannel();
+			
+			channel.label 				= toByteArray(label[i].trim(), 16, BYTE_SPACE);			
+			channel.transducerType 		= toByteArray(transducerType[i].trim(), 80, BYTE_SPACE);
+			channel.physicalDimension 	= toByteArray(physicalDimension[i].trim(), 8, BYTE_SPACE);
+			channel.physicalMinimum 	= toByteArray(physicalMinimum[i].trim(), 8, BYTE_SPACE);
+			channel.physicalMaximum 	= toByteArray(physicalMaximum[i].trim(), 8, BYTE_SPACE);
+			channel.digitalMinimum 		= toByteArray(digitalMinimum[i].trim(), 8, BYTE_SPACE);
+			channel.digitalMaximum 		= toByteArray(digitalMaximum[i].trim(), 8, BYTE_SPACE);
+			channel.prefiltering 		= toByteArray(prefiltering[i].trim(), 80, BYTE_SPACE);
+			channel.numSamples 			= toByteArray(numSamples[i].trim(), 8, BYTE_SPACE);
+			channel.reserved 			= toByteArray(reserved[i].trim(), 32, BYTE_SPACE);
+			
+			channels.add(channel);
 		}
 	}
+
+	public int getLength() {
+		return Integer.parseInt(new String(length).trim());
+	}
 	
-	public String fillString(String string, int size, char value) {
-		char[] target = new char[size];
+	public int getNumChannels() {
+		return Integer.parseInt(new String(numChannels).trim());
+	}
+	
+	@Override
+	public String toString() {
+		ByteBuffer buffer = ByteBuffer.allocate(getLength());
+
+		buffer.put(version);
+		buffer.put(patient);
+		buffer.put(recording);
+		buffer.put(startdate);
+		buffer.put(starttime);
+		buffer.put(length);
+		buffer.put(reserved);
+		buffer.put(numRecords);
+		buffer.put(duration);
+		buffer.put(numChannels);
+		
+		for(int c = 0, offset = getNumChannels()-1; c < channels.size(); c++, offset--) {
+			EDFChannel channel = channels.get(c);
+			
+			buffer.position(256 + c*16);
+			buffer.put(channel.label);
+			
+			buffer.position(buffer.position() + offset*16 + c*80);
+			buffer.put(channel.transducerType);
+			
+			buffer.position(buffer.position() + offset*80 + c*8);
+			buffer.put(channel.physicalDimension);
+			
+			buffer.position(buffer.position() + offset*8 + c*8);
+			buffer.put(channel.physicalMinimum);
+			
+			buffer.position(buffer.position() + offset*8 + c*8);
+			buffer.put(channel.physicalMaximum);
+			
+			buffer.position(buffer.position() + offset*8 + c*8);
+			buffer.put(channel.digitalMinimum);
+			
+			buffer.position(buffer.position() + offset*8 + c*8);
+			buffer.put(channel.digitalMaximum);
+			
+			buffer.position(buffer.position() + offset*8 + c*80);
+			buffer.put(channel.prefiltering);
+			
+			buffer.position(buffer.position() + offset*80 + c*8);
+			buffer.put(channel.numSamples);
+			
+			buffer.position(buffer.position() + offset*8 + c*32);
+			buffer.put(channel.reserved);
+			
+			buffer.rewind();
+		}
+		
+		return new String(buffer.array());
+	}
+
+	public byte[] toByteArray(String string, int size, byte value) {
+		byte[] target = new byte[size];
 		
 		if(string != null) {
-			char[] source = string.toCharArray();
+			byte[] source = string.getBytes();
 			
 			Arrays.fill(target, 0, size, value);
 			System.arraycopy(source, 0, target, 0, source.length);
 		}
 		
-		return new String(target);
+		return target;
 	}
 	
 	@Override
-	public String toString() {
-		StringBuffer buffer = new StringBuffer();
-				
-		buffer.append(fillString(version, 8, ' '));
-		buffer.append(fillString(patient, 80, ' '));
-		buffer.append(fillString(recording, 80, ' '));
-		buffer.append(fillString(startdate, 8, ' '));
-		buffer.append(fillString(starttime, 8, ' '));
-		buffer.append(fillString(length, 8, ' '));
-		buffer.append(fillString(reserved, 44, ' '));
-		buffer.append(fillString(numrecords, 8, ' '));
-		buffer.append(fillString(duration, 8, ' '));
-		buffer.append(fillString(numsignals, 4, ' '));
+	public String getData() {
+		return this.toString();
+	}
+	
+	@Override
+	public boolean isValid() {
+		return valid;
+	}
+	
+	public class EDFChannel {
 		
-		if(numsignals != null && !numsignals.isEmpty()) {
-			int number = Integer.parseInt(numsignals.trim());
-			String value = null;
-			
-			for(int i = 0; i < number; i++) {
-				value = signal_label.size() > i ? signal_label.get(i) : "";
-				buffer.append(fillString(value, 16, ' '));
-			}
-	
-			for(int i = 0; i < number; i++) {
-				value = signal_transducerType.size() > i ? signal_transducerType.get(i) : "";
-				buffer.append(fillString(value, 80, ' '));
-			}
-			
-			for(int i = 0; i < number; i++) {
-				value = signal_physicalDimension.size() > i ? signal_physicalDimension.get(i) : "";
-				buffer.append(fillString(value, 8, ' '));
-			}
-			
-			for(int i = 0; i < number; i++) {
-				value = signal_physicalMinimum.size() > i ? signal_physicalMinimum.get(i) : "";
-				buffer.append(fillString(value, 8, ' '));
-			}
-			
-			for(int i = 0; i < number; i++) {
-				value = signal_physicalMaximum.size() > i ? signal_physicalMaximum.get(i) : "";
-				buffer.append(fillString(value, 8, ' '));
-			}
-			
-			for(int i = 0; i < number; i++) {
-				value = signal_digitalMinimum.size() > i ? signal_digitalMinimum.get(i) : "";
-				buffer.append(fillString(value, 8, ' '));
-			}
-			
-			for(int i = 0; i < number; i++) {
-				value = signal_digitalMaximum.size() > i ? signal_digitalMaximum.get(i) : "";
-				buffer.append(fillString(value, 8, ' '));
-			}
-	
-			for(int i = 0; i < number; i++) {
-				value = signal_prefiltering.size() > i ? signal_prefiltering.get(i) : "";
-				buffer.append(fillString(value, 80, ' '));
-			}
-			
-			for(int i = 0; i < number; i++) {
-				value = signal_numsamples.size() > i ? signal_numsamples.get(i) : "";
-				buffer.append(fillString(value, 8, ' '));
-			}
-			
-			for(int i = 0; i < number; i++) {
-				value = signal_reserved.size() > i ? signal_reserved.get(i) : "";
-				buffer.append(fillString(value, 32, ' '));
-			}
+		// label
+		public byte[] label= new byte[16];
+		
+		// transducer type (e.g. AgAgCl electrode)
+		public byte[] transducerType= new byte[80];
+		
+		// physical dimension (e.g. uV)
+		public byte[] physicalDimension= new byte[8];
+		
+		// physical minimum (e.g. -500 or 34)
+		public byte[] physicalMinimum= new byte[8];
+		
+		// physical maximum (e.g. 500 or 40)
+		public byte[] physicalMaximum= new byte[8];
+		
+		// digital minimum (e.g. -2048)
+		public byte[] digitalMinimum= new byte[8];
+		
+		// digital maximum (e.g. 2047)
+		public byte[] digitalMaximum= new byte[8];
+		
+		// prefiltering (e.g. HP:0.1Hz LP:75Hz)
+		public byte[] prefiltering= new byte[80];
+		
+		// nr of samples in each data record
+		public byte[] numSamples= new byte[8];
+		
+		// reserved
+		public byte[] reserved = new byte[32];
+		
+		public EDFChannel() {
+		
 		}
 		
-		return buffer.toString();
-	}
-	
-	public void setVersion(String version) {
-		this.version = version;
-	}
-
-	public void setPatient(String patient) {
-		this.patient = patient;
-	}
-
-	public void setRecording(String recording) {
-		this.recording = recording;
-	}
-
-	public void setStartdate(String startdate) {
-		this.startdate = startdate;
-	}
-
-	public void setStarttime(String starttime) {
-		this.starttime = starttime;
-	}
-
-	public void setLength(String length) {
-		this.length = length;
-	}
-
-	public void setReserved(String reserved) {
-		this.reserved = reserved;
-	}
-
-	public void setNumrecords(String numrecords) {
-		this.numrecords = numrecords;
-	}
-
-	public void setDuration(String duration) {
-		this.duration = duration;
-	}
-
-	public void setNumsignals(String numsignals) {
-		this.numsignals = numsignals;
-	}
-
-	public void addSignal_label(String signalLabel) {
-		signal_label.add(signalLabel);
-	}
-
-	public void addSignal_transducerType(String signalTransducerType) {
-		signal_transducerType.add(signalTransducerType);
-	}
-
-	public void addSignal_physicalDimension(String signalPhysicalDimension) {
-		signal_physicalDimension.add(signalPhysicalDimension);
-	}
-
-	public void addSignal_physicalMinimum(String signalPhysicalMinimum) {
-		signal_physicalMinimum.add(signalPhysicalMinimum);
-	}
-
-	public void addSignal_physicalMaximum(String signalPhysicalMaximum) {
-		signal_physicalMaximum.add(signalPhysicalMaximum);
-	}
-
-	public void addSignal_digitalMinimum(String signalDigitalMinimum) {
-		signal_digitalMinimum.add(signalDigitalMinimum);
-	}
-
-	public void addSignal_digitalMaximum(String signalDigitalMaximum) {
-		signal_digitalMaximum.add(signalDigitalMaximum);
-	}
-
-	public void addSignal_prefiltering(String signalPrefiltering) {
-		signal_prefiltering.add(signalPrefiltering);
-	}
-
-	public void addSignal_numsamples(String signalNumsamples) {
-		signal_numsamples.add(signalNumsamples);
-	}
-
-	public void addSignal_reserved(String signalReserved) {
-		signal_reserved.add(signalReserved);
+		public int getNumSamples() {
+			return Integer.parseInt(new String(numSamples).trim());
+		}
 	}
 }
