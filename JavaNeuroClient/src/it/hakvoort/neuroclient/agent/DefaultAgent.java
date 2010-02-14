@@ -2,6 +2,7 @@ package it.hakvoort.neuroclient.agent;
 
 import it.hakvoort.neuroclient.NeuroServerConnection;
 import it.hakvoort.neuroclient.NeuroServerInputListener;
+import it.hakvoort.neuroclient.NeuroServerStatusListener;
 import it.hakvoort.neuroclient.NeuroServerConnection.Command;
 import it.hakvoort.neuroclient.reply.DefaultReply;
 import it.hakvoort.neuroclient.reply.Reply;
@@ -14,7 +15,7 @@ import it.hakvoort.neuroclient.reply.Reply.ResponseCode;
  * @author Gido Hakvoort (gido@hakvoort.it)
  * 
  */
-public abstract class DefaultAgent implements Agent, NeuroServerInputListener {
+public abstract class DefaultAgent implements Agent, NeuroServerInputListener, NeuroServerStatusListener {
 
 	protected NeuroServerConnection connection = null;
 
@@ -27,7 +28,7 @@ public abstract class DefaultAgent implements Agent, NeuroServerInputListener {
 		connection.connect();
 
 		if (connection.isConnected()) {
-			connection.addListener(this);
+			connection.addInputListener(this);
 			init();
 		}
 	}
@@ -37,7 +38,7 @@ public abstract class DefaultAgent implements Agent, NeuroServerInputListener {
 		connection.connect();
 
 		if (connection.isConnected()) {
-			connection.addListener(this);
+			connection.addInputListener(this);
 			init();
 		}
 	}
@@ -47,13 +48,17 @@ public abstract class DefaultAgent implements Agent, NeuroServerInputListener {
 		connection.connect();
 
 		if (connection.isConnected()) {
-			connection.addListener(this);
+			connection.addInputListener(this);
 			init();
 		}
 	}
 
 	protected abstract void init();
-
+	
+	public NeuroServerConnection getConnection() {
+		return this.connection;
+	}
+	
 	@Override
 	public Reply hello() {
 		return executeCommand(Command.HELLO);
@@ -64,7 +69,7 @@ public abstract class DefaultAgent implements Agent, NeuroServerInputListener {
 		Reply reply = executeCommand(Command.CLOSE);
 
 		connection.disconnect();
-		connection.removeListener(this);
+		connection.removeInputListener(this);
 
 		return reply;
 	}
@@ -123,7 +128,7 @@ public abstract class DefaultAgent implements Agent, NeuroServerInputListener {
 					
 					if(!finished) {
 						System.err.println("Timeout during executing command, closing connection.");
-						connection.removeListener(this);
+						connection.removeInputListener(this);
 						connection.disconnect();
 					}
 				} catch (InterruptedException e) {
@@ -137,6 +142,12 @@ public abstract class DefaultAgent implements Agent, NeuroServerInputListener {
 		return reply;
 	}
 
+	@Override
+	public void disconnected() {
+		connection.disconnect();
+		connection.removeInputListener(this);
+	}
+	
 	@Override
 	public void receivedLine(String line) {
 		switch (current) {

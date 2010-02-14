@@ -43,8 +43,11 @@ public class NeuroServerConnection {
 	private boolean connected = false;
 
 	// listeners waiting for line input
-	protected List<NeuroServerInputListener> listeners = new CopyOnWriteArrayList<NeuroServerInputListener>();
-
+	protected List<NeuroServerInputListener> inputListeners = new CopyOnWriteArrayList<NeuroServerInputListener>();
+	
+	// listeners waiting for status updates
+	protected List<NeuroServerStatusListener> statusListeners = new CopyOnWriteArrayList<NeuroServerStatusListener>();
+	
 	private NeuroServerLineReader lineReader = new NeuroServerLineReader();
 
 	static {
@@ -103,6 +106,7 @@ public class NeuroServerConnection {
 		}
 
 		connected = false;
+		fireDisconnected();
 
 		try {
 			input.close();
@@ -111,6 +115,7 @@ public class NeuroServerConnection {
 		} catch (IOException e) {
 			System.err.println(String.format("Error during disconnecting"));
 		}
+		
 	}
 
 	public boolean isConnected() {
@@ -151,22 +156,38 @@ public class NeuroServerConnection {
 		}
 	}
 
-	public void addListener(NeuroServerInputListener listener) {
-		listeners.add(listener);
+	public void addInputListener(NeuroServerInputListener listener) {
+		inputListeners.add(listener);
 	}
 
-	public void removeListener(NeuroServerInputListener listener) {
-		listeners.remove(listener);
+	public void removeInputListener(NeuroServerInputListener listener) {
+		inputListeners.remove(listener);
+	}
+	
+	public void addStatusListener(NeuroServerStatusListener listener) {
+		statusListeners.add(listener);
 	}
 
-	public void removeAllListeners() {
-		listeners.clear();
+	public void removeStatusListener(NeuroServerStatusListener listener) {
+		statusListeners.remove(listener);
 	}
 
-	public List<NeuroServerInputListener> getListeners() {
-		return listeners;
+	public void removeAllInputListeners() {
+		inputListeners.clear();
 	}
 
+	public void removeAllStatusListeners() {
+		statusListeners.clear();
+	}
+	
+	public List<NeuroServerInputListener> getInputListeners() {
+		return inputListeners;
+	}
+
+	public List<NeuroServerStatusListener> getStatusListeners() {
+		return statusListeners;
+	}
+	
 	/**
 	 * Send the received line to all listeners
 	 */
@@ -175,8 +196,17 @@ public class NeuroServerConnection {
 			return;
 		}
 
-		for (NeuroServerInputListener listener : listeners) {
+		for (NeuroServerInputListener listener : inputListeners) {
 			listener.receivedLine(line);
+		}
+	}
+	
+	/**
+	 * Send the received line a disconnected notification
+	 */
+	public void fireDisconnected() {
+		for (NeuroServerStatusListener listener : statusListeners) {
+			listener.disconnected();
 		}
 	}
 
@@ -190,6 +220,7 @@ public class NeuroServerConnection {
 					if (connected) {
 						System.err.println(String.format("Error while reading line"));
 						connected = false;
+						fireDisconnected();
 					}
 				}
 			}

@@ -2,6 +2,7 @@ package it.hakvoort.neuroclient.example;
 
 import it.hakvoort.neuroclient.NeuroServerConnection;
 import it.hakvoort.neuroclient.NeuroServerInputListener;
+import it.hakvoort.neuroclient.NeuroServerStatusListener;
 import it.hakvoort.neuroclient.NeuroServerConnection.Command;
 
 /**
@@ -9,7 +10,7 @@ import it.hakvoort.neuroclient.NeuroServerConnection.Command;
  * @author Gido Hakvoort (gido@hakvoort.it)
  * 
  */
-public class ExampleConnection implements NeuroServerInputListener {
+public class ExampleConnection implements NeuroServerInputListener, NeuroServerStatusListener {
 	
 	public ExampleConnection() {
 	
@@ -20,7 +21,7 @@ public class ExampleConnection implements NeuroServerInputListener {
 		NeuroServerConnection connection = new NeuroServerConnection("localhost", 8336);
 		
 		// register this class as listener
-		connection.addListener(new ExampleConnection());
+		connection.addInputListener(new ExampleConnection());
 		
 		// connect to NeuroServer
 		connection.connect();
@@ -39,5 +40,10 @@ public class ExampleConnection implements NeuroServerInputListener {
 	public void receivedLine(String line) {
 		// output incoming lines from NeuroServer
 		System.out.println(line);
+	}
+	
+	@Override
+	public void disconnected() {
+		
 	}
 }
