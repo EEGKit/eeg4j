@@ -16,7 +16,7 @@ import java.util.Properties;
  */
 public class EDFHeader implements NeuroServerHeader {
 	
-	public static byte BYTE_SPACE = 0x20;
+	public static byte SPACE = 0x20;
 	
 	// if this is a valid header
 	public boolean valid = false;
@@ -148,45 +148,45 @@ public class EDFHeader implements NeuroServerHeader {
 		String value = null;
 		
 		value = properties.getProperty("version", "").trim();
-		version = toByteArray(value, 8, BYTE_SPACE);
+		version = toByteArray(value, 8, SPACE);
 		
 		value = properties.getProperty("patient", "").trim();
-		patient = toByteArray(value, 80, BYTE_SPACE);
+		patient = toByteArray(value, 80, SPACE);
 		
 		value = properties.getProperty("recording", "").trim();
-		recording = toByteArray(value, 80, BYTE_SPACE);
+		recording = toByteArray(value, 80, SPACE);
 		
 		value = properties.getProperty("startdate", "").trim();
 		if(value.toUpperCase().equals("AUTO")) {
-			startdate = toByteArray(dateFormat.format(date), 8, BYTE_SPACE);
+			startdate = toByteArray(dateFormat.format(date), 8, SPACE);
 		} else {
-			startdate = toByteArray(value, 8, BYTE_SPACE);
+			startdate = toByteArray(value, 8, SPACE);
 		}
 		
 		value = properties.getProperty("starttime", "").trim();
 		if(value.toUpperCase().equals("AUTO")) {
-			starttime = toByteArray(timeFormat.format(date), 8, BYTE_SPACE);
+			starttime = toByteArray(timeFormat.format(date), 8, SPACE);
 		} else {
-			starttime = toByteArray(value, 8, BYTE_SPACE);
+			starttime = toByteArray(value, 8, SPACE);
 		}
 		
 		value = properties.getProperty("reserved", "").trim();
-		reserved = toByteArray(value, 44, BYTE_SPACE);
+		reserved = toByteArray(value, 44, SPACE);
 
 		value = properties.getProperty("duration", "").trim();
-		duration = toByteArray(value, 8, BYTE_SPACE);
+		duration = toByteArray(value, 8, SPACE);
 		
 		value = properties.getProperty("number.of.records", "").trim();
-		numRecords = toByteArray(value, 8, BYTE_SPACE);
+		numRecords = toByteArray(value, 8, SPACE);
 		
 		value = properties.getProperty("number.of.channels", "").trim();
-		numChannels = toByteArray(value, 4, BYTE_SPACE);
+		numChannels = toByteArray(value, 4, SPACE);
 		
 		value = properties.getProperty("length", "");
 		if(value.toUpperCase().equals("AUTO")) {
-			length = toByteArray(String.valueOf((getNumChannels()+1)*256), 8, BYTE_SPACE);
+			length = toByteArray(String.valueOf((getNumChannels()+1)*256), 8, SPACE);
 		} else {
-			length = toByteArray(value, 8, BYTE_SPACE);;
+			length = toByteArray(value, 8, SPACE);;
 		}
 		
 		valid = true;
@@ -269,16 +269,16 @@ public class EDFHeader implements NeuroServerHeader {
 		for(int i = 0; i < getNumChannels(); i++) {
 			EDFChannel channel = new EDFChannel();
 			
-			channel.label 				= toByteArray(label[i].trim(), 16, BYTE_SPACE);			
-			channel.transducerType 		= toByteArray(transducerType[i].trim(), 80, BYTE_SPACE);
-			channel.physicalDimension 	= toByteArray(physicalDimension[i].trim(), 8, BYTE_SPACE);
-			channel.physicalMinimum 	= toByteArray(physicalMinimum[i].trim(), 8, BYTE_SPACE);
-			channel.physicalMaximum 	= toByteArray(physicalMaximum[i].trim(), 8, BYTE_SPACE);
-			channel.digitalMinimum 		= toByteArray(digitalMinimum[i].trim(), 8, BYTE_SPACE);
-			channel.digitalMaximum 		= toByteArray(digitalMaximum[i].trim(), 8, BYTE_SPACE);
-			channel.prefiltering 		= toByteArray(prefiltering[i].trim(), 80, BYTE_SPACE);
-			channel.numSamples 			= toByteArray(numSamples[i].trim(), 8, BYTE_SPACE);
-			channel.reserved 			= toByteArray(reserved[i].trim(), 32, BYTE_SPACE);
+			channel.label 				= toByteArray(label[i].trim(), 16, SPACE);			
+			channel.transducerType 		= toByteArray(transducerType[i].trim(), 80, SPACE);
+			channel.physicalDimension 	= toByteArray(physicalDimension[i].trim(), 8, SPACE);
+			channel.physicalMinimum 	= toByteArray(physicalMinimum[i].trim(), 8, SPACE);
+			channel.physicalMaximum 	= toByteArray(physicalMaximum[i].trim(), 8, SPACE);
+			channel.digitalMinimum 		= toByteArray(digitalMinimum[i].trim(), 8, SPACE);
+			channel.digitalMaximum 		= toByteArray(digitalMaximum[i].trim(), 8, SPACE);
+			channel.prefiltering 		= toByteArray(prefiltering[i].trim(), 80, SPACE);
+			channel.numSamples 			= toByteArray(numSamples[i].trim(), 8, SPACE);
+			channel.reserved 			= toByteArray(reserved[i].trim(), 32, SPACE);
 			
 			channels.add(channel);
 		}
