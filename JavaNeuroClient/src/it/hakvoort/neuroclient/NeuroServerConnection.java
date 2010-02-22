@@ -153,6 +153,7 @@ public class NeuroServerConnection {
 			output.writeBytes(data);
 		} catch (IOException e) {
 			System.err.println(String.format("Could not send command: %s", command));
+			connected = false;
 		}
 	}
 
