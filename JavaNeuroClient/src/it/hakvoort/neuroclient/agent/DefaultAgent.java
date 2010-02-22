@@ -59,6 +59,10 @@ public abstract class DefaultAgent implements Agent, NeuroServerInputListener, N
 		return this.connection;
 	}
 	
+	public boolean isConnected() {
+		return this.connection.isConnected();
+	}
+	
 	@Override
 	public Reply hello() {
 		return executeCommand(Command.HELLO);
