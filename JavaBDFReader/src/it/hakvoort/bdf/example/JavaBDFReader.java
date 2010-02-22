@@ -15,7 +15,7 @@ public class JavaBDFReader implements BDFListener {
 	private BDFReader bdfReader;
 	
 	public JavaBDFReader() {
-		bdfReader = new BDFReader("data/bdf/geen.bdf");
+		bdfReader = new BDFReader("data/bdf/example.bdf");
 		
 		bdfReader.setFrequency(1);
 		bdfReader.setRepeat(true);
