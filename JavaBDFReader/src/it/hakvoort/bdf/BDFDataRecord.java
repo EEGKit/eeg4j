@@ -1,5 +1,10 @@
 package it.hakvoort.bdf;
 
+/**
+ * 
+ * @author Gido Hakvoort (gido@hakvoort.it)
+ * 
+ */
 public class BDFDataRecord {
 	
 	public int recordCounter;
