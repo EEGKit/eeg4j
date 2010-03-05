@@ -37,11 +37,21 @@ public class BDFNetworkServer implements Runnable {
 	// the number of connected clients
 	private AtomicInteger connectedClients = new AtomicInteger(0);
 	
+	// the server thread
+	private Thread serverThread;
+	
 	public BDFNetworkServer(BDFReader reader, String HOST, int PORT) {
 		this.reader = reader;
 		
 		this.HOST = HOST;
 		this.PORT = PORT;
+	}
+	
+	public synchronized void start() {
+		if(this.serverThread == null) {
+			this.serverThread = new Thread(this);
+			this.serverThread.start();
+		}
 	}
 	
 	@Override
@@ -78,7 +88,7 @@ public class BDFNetworkServer implements Runnable {
 		}
 	}
 	
-	public void close() {
+	public synchronized void stop() {
 		listening = false;
 		
 		try {
