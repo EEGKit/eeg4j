@@ -203,6 +203,11 @@ public class NiaDevice {
 						
 						try {
 							samples.add(new NiaSample((i/3), miscount, hitcount, sample, time));
+
+							synchronized(samples) {
+								samples.notifyAll();
+							}
+							
 						} catch(IllegalStateException e) {
 							System.out.println(String.format("Size of array: %s.", samples.size()));
 						}
@@ -260,13 +265,20 @@ public class NiaDevice {
 	private class NiaDataReader extends Thread {
 		
 		public void run() {
-			while(connected || !samples.isEmpty()) {
-				
-				NiaSample sample = samples.poll();
-				
-				if(sample != null) {
-					fireReceivedSample(sample);
-				}
+			while(connected) {
+				synchronized(samples) {
+					while(samples.isEmpty()) {
+						try {
+							samples.wait();
+						} catch(InterruptedException e) {
+							
+						}
+					}
+					
+					while(!samples.isEmpty()) {
+						fireReceivedSample(samples.poll());
+					}
+				}		
 			}
 		}
 	}
