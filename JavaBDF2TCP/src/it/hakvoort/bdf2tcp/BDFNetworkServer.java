@@ -66,9 +66,11 @@ public class BDFNetworkServer implements Runnable {
 			serverSocket.bind(new InetSocketAddress(HOST, PORT));
 			
 			System.out.println(String.format("BDFServer ready and listening for connections on: %s:%s.", HOST, PORT));
+			System.out.println(String.format("Sending data at %s records/second with %s channels/record.", reader.getFrequency(), reader.getHeader().getNumChannels()));
+			
 			while(listening) {
 				Socket socket = serverSocket.accept();
-								
+				
 				BDFClientHandler handler = new BDFClientHandler(socket);
 				reader.addListener(handler);
 				
@@ -76,8 +78,12 @@ public class BDFNetworkServer implements Runnable {
 					connectedClients.incrementAndGet();
 				}
 				
+				String name = String.format("BDFClient_%s", connectedClients);
+				
+				System.out.println(String.format("%s connected from '%s'.", name, socket.getInetAddress().getHostAddress()));
+				
 				Thread handlerThread = new Thread(handler);
-				handlerThread.setName(String.format("BDFClient_%s", connectedClients));
+				handlerThread.setName(name);
 				handlerThread.setDaemon(true);
 				handlerThread.start();
 			}
@@ -137,6 +143,8 @@ public class BDFNetworkServer implements Runnable {
 			synchronized(connectedClients) {
 				connectedClients.decrementAndGet();
 			}
+			
+			System.out.println(String.format("%s disconnected.", Thread.currentThread().getName()));
 		}
 		
 		@Override
