@@ -127,7 +127,6 @@ public class BDFNetworkClient {
 			int[] samples = new int[numChannels];
 			
 			try {
-				
 				while(connected && input.read(buffer) != -1) {
 					
 					for(int i=0; i<numChannels; i++) {
@@ -143,11 +142,11 @@ public class BDFNetworkClient {
 					fireReceivedRecord(new BDFDataRecord(recordCounter, samples));
 					recordCounter++;						
 				}
-				
 			} catch(IOException e) {
 				
 			}
 			connected = false;
+			System.err.println("BDFClient disconnected.");
 		}
 	}
 }
