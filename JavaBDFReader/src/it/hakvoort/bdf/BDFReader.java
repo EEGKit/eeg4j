@@ -59,9 +59,13 @@ public class BDFReader {
 	}
 		
 	public int getFrequency() {
+		if(this.frequency == 0) {
+			return this.sampleRate;
+		}
+		
 		return this.frequency;
 	}
-		
+	
 	public void setFrequency(int frequency) {
 		this.frequency = frequency;
 	}
