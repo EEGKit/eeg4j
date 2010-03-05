@@ -40,6 +40,9 @@ public class BDFReader {
 		
 	// if the file is open
 	private boolean open = false;
+
+	// if the file and data readers are running
+	private boolean running = false;
 	
 	// should the reader start at the beginning of the file when reaching the end
 	private boolean repeat = false;
@@ -123,6 +126,10 @@ public class BDFReader {
 		return this.open;
 	}
 	
+	public boolean isRunning() {
+		return this.running;
+	}
+	
 	/*
 	 * Start the BDFReader, start the read and data threads.
 	 */
@@ -133,12 +140,15 @@ public class BDFReader {
 		} else {
 			System.err.println(String.format("BDFReader: BDF file: '%s' is closed", file));
 		}
+		
+		running = true;
 	}
 	
 	/*
 	 * Stop the BDFReader from further processing new data
 	 */
 	public void stop() {
+		running = false;
 		open = false;
 		records.clear();
 		
