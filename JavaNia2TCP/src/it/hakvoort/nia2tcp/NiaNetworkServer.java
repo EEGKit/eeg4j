@@ -135,13 +135,14 @@ public class NiaNetworkServer implements Runnable {
 				connectedClients.decrementAndGet();
 			}
 			
+			device.removeListener(this);
 			System.out.println(String.format("%s disconnected.", Thread.currentThread().getName()));
 		}
 		
 		@Override
 		public void receivedSample(NiaSample sample) {
 			byte[] data = new byte[3];
-				
+			
 			data[0] = (byte) (sample.value & 0xFF);
 			data[1] = (byte) ((sample.value >> 8) & 0xFF);
 			data[2] = (byte) ((sample.value >>> 16) & 0xFF);
