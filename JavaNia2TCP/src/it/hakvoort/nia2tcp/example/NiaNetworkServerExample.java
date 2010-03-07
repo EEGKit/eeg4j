@@ -8,7 +8,7 @@ public class NiaNetworkServerExample {
 	public NiaNetworkServerExample() {
 		NiaDevice device = new NiaDevice();
 		
-		NiaNetworkServer server = new NiaNetworkServer(device, "localhost", 4321);
+		NiaNetworkServer server = new NiaNetworkServer(device, 4321);
 		
 		server.start();
 	}

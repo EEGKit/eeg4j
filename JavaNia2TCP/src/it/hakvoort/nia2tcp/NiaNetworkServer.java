@@ -7,6 +7,7 @@ import it.hakvoort.nia.NiaSample;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
+import java.net.InetAddress;
 import java.net.InetSocketAddress;
 import java.net.ServerSocket;
 import java.net.Socket;
@@ -20,10 +21,10 @@ public class NiaNetworkServer implements Runnable {
 	// the nia
 	private NiaDevice device;
 	
-	// the hostname or ip address of the server
+	// the server's address
 	private String HOST;
 	
-	// the server port
+	// the server's port
 	private int PORT;
 	
 	// if the server is listening for new connections
@@ -35,10 +36,9 @@ public class NiaNetworkServer implements Runnable {
 	// the server thread
 	private Thread serverThread;
 
-	public NiaNetworkServer(NiaDevice device, String HOST, int PORT) {
+	public NiaNetworkServer(NiaDevice device, int PORT) {
 		this.device = device;
 		
-		this.HOST = HOST;
 		this.PORT = PORT;
 	}
 	
@@ -57,7 +57,9 @@ public class NiaNetworkServer implements Runnable {
 	public void run() {
 		try {
 			serverSocket = new ServerSocket();
-			serverSocket.bind(new InetSocketAddress(HOST, PORT));
+			serverSocket.bind(new InetSocketAddress(PORT));
+			
+			HOST = InetAddress.getLocalHost().getHostAddress();
 			
 			System.out.println(String.format("NiaServer ready and listening for connections on: %s:%s.", HOST, PORT));
 			
@@ -150,12 +152,5 @@ public class NiaNetworkServer implements Runnable {
 				connected = false;
 			}
 		}
-	}
-	
-	public static void main(String[] args) {
-		NiaDevice device = new NiaDevice();
-		NiaNetworkServer niaBDFLink = new NiaNetworkServer(device, "localhost", 4321);
-		
-		
 	}
 }
