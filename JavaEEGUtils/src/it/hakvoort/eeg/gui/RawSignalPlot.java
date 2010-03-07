@@ -134,20 +134,29 @@ public class RawSignalPlot extends JFrame {
 			}
 			
 			if(showSps) {
+				int sps = (int) (samples / (double) ((System.currentTimeMillis()-startTime) / 1000));
+
 				int x = getWidth() - 150;
 				int y = 20;
 				
 				int width = 120;
 				int height = 20;
 				
+				// draw info rect
 				graphics.setColor(Color.LIGHT_GRAY);
 				graphics.fillRect(x, y, width, height);
 				
+				// draw info boundary
 				graphics.setColor(Color.DARK_GRAY);
 				graphics.drawRect(x, y, width, height);
 				
-				FontMetrics metrics = graphics.getFontMetrics(); 
-				graphics.drawString(String.format("%s samples/sec", (int) (samples / (double) ((System.currentTimeMillis() - startTime) / 1000))), x+5, y + metrics.getHeight());
+				FontMetrics metrics = graphics.getFontMetrics();
+				
+				if(System.currentTimeMillis()-startTime > 1000) {
+					graphics.drawString(String.format("%s samples/sec", sps), x+5, y + metrics.getHeight());	
+				} else {
+					graphics.drawString(String.format("calculating.."), x+5, y + metrics.getHeight());
+				}
 			}
 		}
 	}
