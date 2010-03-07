@@ -18,7 +18,7 @@ public class BDF2TCPExample implements BDFListener {
 		BDFReader reader = new BDFReader("data/bdf/example.bdf");
 		
 		// create and start a BDFNetworkServer
-		BDFNetworkServer server = new BDFNetworkServer(reader, "localhost", 4321);
+		BDFNetworkServer server = new BDFNetworkServer(reader, 4321);
 		server.start();
 		
 		// wait a second

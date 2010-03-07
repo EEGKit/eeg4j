@@ -7,6 +7,7 @@ import it.hakvoort.bdf.BDFReader;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
+import java.net.InetAddress;
 import java.net.InetSocketAddress;
 import java.net.ServerSocket;
 import java.net.Socket;
@@ -40,10 +41,9 @@ public class BDFNetworkServer implements Runnable {
 	// the server thread
 	private Thread serverThread;
 	
-	public BDFNetworkServer(BDFReader reader, String HOST, int PORT) {
+	public BDFNetworkServer(BDFReader reader, int PORT) {
 		this.reader = reader;
 		
-		this.HOST = HOST;
 		this.PORT = PORT;
 	}
 	
@@ -63,7 +63,9 @@ public class BDFNetworkServer implements Runnable {
 		
 		try {
 			serverSocket = new ServerSocket();
-			serverSocket.bind(new InetSocketAddress(HOST, PORT));
+			serverSocket.bind(new InetSocketAddress(PORT));
+			
+			HOST = InetAddress.getLocalHost().getHostAddress();
 			
 			System.out.println(String.format("BDFServer ready and listening for connections on: %s:%s.", HOST, PORT));
 			System.out.println(String.format("Sending data at %s records/second with %s channels/record.", reader.getFrequency(), reader.getHeader().getNumChannels()));
