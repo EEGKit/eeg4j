@@ -106,6 +106,10 @@ public class NiaDevice {
 		connected = false;
 	}
 	
+	public boolean isConnected() {
+		return this.connected;
+	}
+	
 	public boolean getSigned() {
 		return signed;
 	}
