@@ -146,6 +146,7 @@ public class BDFNetworkServer implements Runnable {
 				connectedClients.decrementAndGet();
 			}
 			
+			reader.removeListener(this);
 			System.out.println(String.format("%s disconnected.", Thread.currentThread().getName()));
 		}
 		
