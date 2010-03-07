@@ -1,6 +1,8 @@
-package it.hakvoort.eeg.util;
+package it.hakvoort.eeg.gui;
 
-import it.hakvoort.eeg.util.WindowedBuffer.Window;
+import it.hakvoort.eeg.util.WindowedDataBuffer;
+import it.hakvoort.eeg.util.WindowedDataBuffer.Float;
+import it.hakvoort.eeg.util.WindowedDataBuffer.Window;
 
 import java.awt.GridLayout;
 
@@ -38,8 +40,8 @@ public class FFTPlot extends JFrame {
 	protected int min;
 	protected int max;
 	
-	// DataBuffer contains incomming samples and handles windowing
-	private WindowedBuffer.Float buffer;
+	// WindowedDataBuffer contains incomming samples and handles windowing
+	private WindowedDataBuffer.Float buffer;
 
 	// the FFT
 	private FloatFFT_1D fft;
@@ -61,7 +63,7 @@ public class FFTPlot extends JFrame {
 		this.min = 0;
 		this.max = size/2;
 		
-		buffer = new WindowedBuffer.Float(size);
+		buffer = new WindowedDataBuffer.Float(size);
 		fft = new FloatFFT_1D(size);
 
 		target = new float[size];
