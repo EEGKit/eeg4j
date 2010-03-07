@@ -34,6 +34,9 @@ public class NiaNetworkClient {
 	// listeners waiting for records
 	protected List<NiaListener> listeners = new CopyOnWriteArrayList<NiaListener>();
 	
+	// if the samples are signed
+	private boolean signed = true;
+	
 	public NiaNetworkClient(String HOST, int PORT) {
 		this.HOST = HOST;
 		this.PORT = PORT;
@@ -78,6 +81,14 @@ public class NiaNetworkClient {
 		return this.connected;
 	}
 	
+	public boolean isSigned() {
+		return this.signed;
+	}
+	
+	public void setSigned(boolean signed) {
+		this.signed = signed;
+	}
+	
 	public void addListener(NiaListener listener) {
 		listeners.add(listener);
 	}
@@ -116,7 +127,7 @@ public class NiaNetworkClient {
 					
 					int sample = (buffer[0] & 0xFF) | ((buffer[1] & 0xFF) << 8) | ((buffer[2] & 0xFF) << 16);
 					
-					if((sample & 0x800000) != 0) {
+					if(signed && (sample & 0x800000) != 0) {
 						sample = ~(sample ^ 0x7fffff) + 0x800000;
 					}
 					
