@@ -52,6 +52,9 @@ public class FFTPlot extends JFrame {
 	// bin array
 	private double[] bins;
 	
+	// the histogram
+	private JHistogram hist;
+	
 	public FFTPlot(int size, int rate) {
 		super("FFT spectrum");
 
@@ -82,8 +85,7 @@ public class FFTPlot extends JFrame {
         JPanel panel = new JPanel();
         panel.setLayout(new GridLayout(1,1));
         
-        JHistogram hist = new JHistogram(this.model);
-        hist.setYExtrema(0, 100);
+        hist = new JHistogram(this.model);
         
         panel.add(hist);
                 
@@ -91,6 +93,10 @@ public class FFTPlot extends JFrame {
         
         setSize(600, 400);
         setVisible(true);	
+	}
+	
+	public void setYExtrema(int min, int max) {
+		hist.setYExtrema(min, max);
 	}
 	
 	public void setInterval(int interval) {

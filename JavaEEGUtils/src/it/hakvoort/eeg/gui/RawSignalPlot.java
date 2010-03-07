@@ -3,6 +3,7 @@ package it.hakvoort.eeg.gui;
 import it.hakvoort.eeg.util.DataBuffer;
 
 import java.awt.Color;
+import java.awt.FontMetrics;
 import java.awt.Graphics;
 import java.awt.GridLayout;
 import java.awt.Point;
@@ -34,13 +35,21 @@ public class RawSignalPlot extends JFrame {
 	// draw new incomming samples at the end of the graph
 	private boolean tailing = false;
 	
+	// show samples per second
+	private boolean showSps = false;
+	
 	// total number of processed samples
 	private long samples = 0;
 	
+	// startTime for calculating samples per second
+	private long startTime = 0;
+	
 	public RawSignalPlot(int size) {
 		super("Raw Signal");
-		
+				
 		this.size = size;
+		
+		startTime = System.currentTimeMillis();
 		
 		buffer = new DataBuffer.Float(size);
 		target = new float[size];
@@ -77,6 +86,14 @@ public class RawSignalPlot extends JFrame {
 		graph.setGridLines(value);
 	}
 	
+	public void showSps(boolean showSps) {
+		this.showSps = showSps;
+	}
+	
+	public boolean getShowSps() {
+		return this.showSps;
+	}
+	
 	public void setTailing(boolean tailing) {
 		this.tailing = tailing;
 	}
@@ -109,11 +126,28 @@ public class RawSignalPlot extends JFrame {
 			super.offscreenPaint(graphics);
 			
 			if(!tailing) {
-				Point top = dataToScreen(samples, getYMaximum());
-				Point bottom = dataToScreen(samples, getYMinimum());
+				Point p1 = dataToScreen(samples, getYMaximum());
+				Point p2 = dataToScreen(samples, getYMinimum());
 			
 				graphics.setColor(Color.BLUE);
-				graphics.drawLine(top.x, top.y, bottom.x, bottom.y);			
+				graphics.drawLine(p1.x, p1.y, p2.x, p2.y);
+			}
+			
+			if(showSps) {
+				int x = getWidth() - 150;
+				int y = 20;
+				
+				int width = 120;
+				int height = 20;
+				
+				graphics.setColor(Color.LIGHT_GRAY);
+				graphics.fillRect(x, y, width, height);
+				
+				graphics.setColor(Color.DARK_GRAY);
+				graphics.drawRect(x, y, width, height);
+				
+				FontMetrics metrics = graphics.getFontMetrics(); 
+				graphics.drawString(String.format("%s samples/sec", (int) (samples / (double) ((System.currentTimeMillis() - startTime) / 1000))), x+5, y + metrics.getHeight());
 			}
 		}
 	}
