@@ -71,7 +71,6 @@ public class NiaDevice {
 				connected = true;
 				continue;
 			} catch (USBException e) {
-				e.printStackTrace();
 				System.err.println("NIA device not found.");
 				attempt++;
 			}
@@ -165,6 +164,10 @@ public class NiaDevice {
 		public BufferedWriter out = null;
 		
 		public NiaDeviceReader() {
+
+		}
+		
+		public void run() {
 			if(logging) {
 				try {
 					fileWriter = new FileWriter("out.txt");
@@ -173,9 +176,7 @@ public class NiaDevice {
 					e.printStackTrace();
 				}
 			}
-		}
-		
-		public void run() {			
+			
 			while(connected) {
 				try {
 					timestamp = System.currentTimeMillis();
@@ -216,6 +217,10 @@ public class NiaDevice {
 							System.out.println(String.format("Size of array: %s.", samples.size()));
 						}
 					}
+
+					// TODO: add a wait based on sample rate.
+					// get only the latest sample, maybe something to do with the hitcount?
+					
 				} catch(USBException e) {
 					System.err.println(e.getMessage());
 					connected = false;
