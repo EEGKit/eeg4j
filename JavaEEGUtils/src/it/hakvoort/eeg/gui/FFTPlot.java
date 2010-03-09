@@ -136,6 +136,10 @@ public class FFTPlot extends JFrame {
 		return this.max;
 	}
 	
+	public double[] getBins() {
+		return this.bins;
+	}
+	
 	public void add(float value) {
 		buffer.add(value);
 		
