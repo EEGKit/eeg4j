@@ -144,7 +144,7 @@ public class FFTPlot extends JFrame {
 	}
 	
 	public double getAverageMagnitude() {
-		return 0d;
+		return this.magnitude;
 	}
 	
 	public void add(float value) {
