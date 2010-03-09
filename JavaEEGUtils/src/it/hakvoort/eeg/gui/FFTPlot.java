@@ -52,6 +52,9 @@ public class FFTPlot extends JFrame {
 	// bin array
 	private double[] bins;
 	
+	// average magnitude of frequencies in bin
+	private double magnitude = 0d;
+	
 	// the histogram
 	private JHistogram hist;
 	
@@ -140,6 +143,10 @@ public class FFTPlot extends JFrame {
 		return this.bins;
 	}
 	
+	public double getAverageMagnitude() {
+		return 0d;
+	}
+	
 	public void add(float value) {
 		buffer.add(value);
 		
@@ -147,7 +154,8 @@ public class FFTPlot extends JFrame {
 		
 		if(intervalCounter >= interval) {
 			int binCount = (int) ((max - min) / resolution + 1);
-
+			double averageMagnitude = 0;
+			
 			bins = new double[binCount];
 			
 			buffer.getData(target, window);
@@ -159,7 +167,11 @@ public class FFTPlot extends JFrame {
 				
 				// magnitude of frequency
 				bins[(int) i] = Math.sqrt(target[index]*target[index] + target[index+1]*target[index+1]) / (size / 2);
+			
+				averageMagnitude += bins[(int) i];
 			}
+			
+			magnitude = averageMagnitude / ((double) binCount);
 			
 			// shift the array by 1
 			double[] y2 = new double[binCount + 1];
