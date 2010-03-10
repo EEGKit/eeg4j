@@ -17,7 +17,7 @@ import ch.ntb.usb.USBException;
  *
  */
 public class NiaDevice {
-
+	
 	public static final int ATTEMPTS = 5;
 	
 	public static final short VENDOR = (short) 0x1234;
@@ -25,6 +25,19 @@ public class NiaDevice {
 	
 	public static final int ENDPOINT_IN = 0x81;
 	public static final int ENDPOINT_OUT = 0x01;
+	
+	// the size of Nia's internal buffer (this is the maximum number of sample Nia gets behind)
+	public static final int INTERNAL_BUFFER_SIZE = 32;
+	
+	// internal sample rate of Nia in Hz
+	public static final int SAMPLE_RATE = 3906;
+	
+	// the value to give missing sample
+	public static final int MISSING_SAMPLE_VALUE = Integer.MIN_VALUE;
+	
+	// prefered sample rate of the NiaDevice.
+	// every SAMPLE_RATE/sampleRate clock cycles a new sample is read and send to all listeners
+	private int sampleRate = 512;
 	
 	// listeners waiting for samples
 	protected List<NiaListener> listeners = new CopyOnWriteArrayList<NiaListener>();
@@ -50,6 +63,7 @@ public class NiaDevice {
 	// the number of connection attempts
 	private int attempt = 0;
 	
+	// a queue with contains all incomming (and missing) samples
 	private ConcurrentLinkedQueue<NiaSample> samples = new ConcurrentLinkedQueue<NiaSample>();
 	
 	public NiaDevice() {
@@ -105,6 +119,14 @@ public class NiaDevice {
 		connected = false;
 	}
 	
+	public void setSampleRate(int sampleRate) {
+		this.sampleRate = sampleRate;
+	}
+	
+	public int getSampleRate() {
+		return this.sampleRate;
+	}
+	
 	public boolean isConnected() {
 		return this.connected;
 	}
@@ -157,8 +179,8 @@ public class NiaDevice {
 	private class NiaDeviceReader extends Thread {
 		
 		private byte buffer[] = new byte[55];
-		private long timestamp = 0;
-		private long time = 0;
+		private int offset = 0;
+		private int pMiscount = 0;
 		
 		public FileWriter fileWriter = null; 
 		public BufferedWriter out = null;
@@ -179,9 +201,7 @@ public class NiaDevice {
 			
 			while(connected) {
 				try {
-					timestamp = System.currentTimeMillis();
 					device.readBulk(NiaDevice.ENDPOINT_IN, buffer, buffer.length, 2000, false);
-					time = System.currentTimeMillis()-timestamp;
 					
 					if(logging) {
 						logData();
@@ -196,31 +216,56 @@ public class NiaDevice {
 					// fetch the total number of misses, divided over 2 bytes (litle endian)
 					int miscount = ((buffer[51] & 0xFF) << 8) | (buffer[50] & 0xFF);
 					
+					// calculate delta miscount
+					int dMiscount = miscount - pMiscount; 
+					
+					// store last miscount
+					pMiscount = miscount;
+					
+					// update the offset
+					offset += dMiscount;
+					
+					// check if offset is larger than the size of Nia's internal buffer
+					if(offset >= INTERNAL_BUFFER_SIZE) {
+
+						// internal buffer of Nia is full, report missing samples
+						for(int i=0; i < (offset - offset%INTERNAL_BUFFER_SIZE); i++) {
+							samples.add(new NiaSample((hitcount - offset - nSamples) + i, MISSING_SAMPLE_VALUE));
+							
+							synchronized(samples) {
+								samples.notifyAll();
+							}
+						}
+						
+						// catch up, don't fall to far behind
+						offset %= INTERNAL_BUFFER_SIZE;
+					}
+					
 					// fetch the samples. each sample is divided over 3 bytes, litle endian
 					for(int i=0; i < nSamples*3; i+=3) {
-						int sample = (buffer[i] & 0xFF) | ((buffer[i+1] & 0xFF) << 8) | ((buffer[i+2] & 0xFF) << 16);
+						
+						// get sample number
+						int number = (hitcount - offset - nSamples) + (i/3);
+						
+						// get sample value
+						int value = (buffer[i] & 0xFF) | ((buffer[i+1] & 0xFF) << 8) | ((buffer[i+2] & 0xFF) << 16);
 						
 						// according to the HID information of the device, sample are between -8388608 and 8388607
 						// meaning the sample has a sign bit and is in two's complement.
-						if(signed && ((sample & 0x800000) != 0)) {
-							sample = ~(sample ^ 0x7fffff) + 0x800000;
+						if(signed && ((value & 0x800000) != 0)) {
+							value = ~(value ^ 0x7fffff) + 0x800000;
 						}
 						
 						try {
-							samples.add(new NiaSample((i/3), miscount, hitcount, sample, time));
+							samples.add(new NiaSample(number, value));
 
 							synchronized(samples) {
 								samples.notifyAll();
 							}
-							
 						} catch(IllegalStateException e) {
-							System.out.println(String.format("Size of array: %s.", samples.size()));
+							
 						}
-					}
-
-					// TODO: add a wait based on sample rate.
-					// get only the latest sample, maybe something to do with the hitcount?
-					
+					}					
 				} catch(USBException e) {
 					System.err.println(e.getMessage());
 					connected = false;
@@ -257,7 +302,6 @@ public class NiaDevice {
 				stringBuffer.append(" ");
 			}
 			
-			stringBuffer.append(Long.toString(time));
 			stringBuffer.append("\n");
 			
 			try {
@@ -285,6 +329,8 @@ public class NiaDevice {
 					}
 					
 					while(!samples.isEmpty()) {
+						// TODO: add signal based on sample rate
+						
 						fireReceivedSample(samples.poll());
 					}
 				}		
