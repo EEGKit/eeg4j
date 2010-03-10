@@ -125,13 +125,13 @@ public class NiaNetworkClient {
 			try {
 				while(connected && input.read(buffer) != -1) {
 					
-					int sample = (buffer[0] & 0xFF) | ((buffer[1] & 0xFF) << 8) | ((buffer[2] & 0xFF) << 16);
+					int value = (buffer[0] & 0xFF) | ((buffer[1] & 0xFF) << 8) | ((buffer[2] & 0xFF) << 16);
 					
-					if(signed && (sample & 0x800000) != 0) {
-						sample = ~(sample ^ 0x7fffff) + 0x800000;
+					if(signed && (value & 0x800000) != 0) {
+						value = ~(value ^ 0x7fffff) + 0x800000;
 					}
 					
-					fireReceivedSample(new NiaSample(recordCounter, -1, -1, sample, -1));
+					fireReceivedSample(new NiaSample(recordCounter, value));
 					recordCounter++;						
 				}
 			} catch(IOException e) {
