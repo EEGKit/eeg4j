@@ -216,9 +216,9 @@ public class NiaDevice {
 					// fetch the total number of misses, divided over 2 bytes (litle endian)
 					int miscount = ((buffer[51] & 0xFF) << 8) | (buffer[50] & 0xFF);
 					
-					// calculate delta miscount
-					int dMiscount = miscount - pMiscount; 
-					
+					// calculate delta miscount, if miscount is smaller than pMiscount, there was an overflow
+					int dMiscount = (miscount < pMiscount) ? ((miscount + 0xFFFF) - pMiscount) : (miscount - pMiscount);
+										
 					// store last miscount
 					pMiscount = miscount;
 					
