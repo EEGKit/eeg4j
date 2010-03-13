@@ -147,41 +147,73 @@ public class FFTPlot extends JFrame {
 		return this.magnitude;
 	}
 	
+	public double getMagnitude(double frequency) {
+		if (frequency < min || frequency > max) {
+			return 0d;
+		}
+
+		if(frequency % resolution != 0) {
+			double offset = frequency % resolution;
+
+			double value1 = bins[(int) (((frequency - offset) - min) / resolution)];
+			double value2 = bins[(int) (((frequency - offset + resolution) - min) / resolution)];
+
+			double scale1 = 1 - offset / resolution;
+			double scale2 = offset / resolution;
+
+			return (scale1 * value1) + (scale2 * value2);
+		}
+
+		return bins[(int) ((frequency - min) / resolution)];
+	}
+	
 	public void add(float value) {
 		buffer.add(value);
 		
 		intervalCounter++;
 		
 		if(intervalCounter >= interval) {
-			int binCount = (int) ((max - min) / resolution + 1);
-			double averageMagnitude = 0;
-			
-			bins = new double[binCount];
-			
-			buffer.getData(target, window);
-			fft.realForward(target);
-			
-			// get the values between the min and max frequencies
-			for(double f = min, i = 0; f < max; f += resolution, i++) {
-				int index = (int) ((f / resolution)) * 2;
-				
-				// magnitude of frequency
-				bins[(int) i] = Math.sqrt(target[index]*target[index] + target[index+1]*target[index+1]) / (size / 2);
-			
-				averageMagnitude += bins[(int) i];
-			}
-			
-			magnitude = averageMagnitude / ((double) binCount);
-			
-			// shift the array by 1
-			double[] y2 = new double[binCount + 1];
-			System.arraycopy(bins, 0, y2, 1, binCount);
-			
-			// update the FFTDataSeries
-			fftDataSeries.setValues(y2);
-			
+			applyFFT();
+			updateFFTDataSeries();
 			intervalCounter = 0;
 		}
+	}
+	
+	private void applyFFT() {
+		int binCount = (int) ((max - min) / resolution + 1);
+		double averageMagnitude = 0;
+		
+		bins = new double[binCount];
+		
+		// get data from buffer
+		buffer.getData(target, window);
+		
+		// perform fft
+		fft.realForward(target);
+		
+		// get the values between the min and max frequencies
+		for(double f = min, i = 0; f < max; f += resolution, i++) {
+			int index = (int) ((f / resolution)) * 2;
+			
+			// magnitude of frequency
+			bins[(int) i] = Math.sqrt(target[index]*target[index] + target[index+1]*target[index+1]) / (size / 2);
+
+			averageMagnitude += bins[(int) i];
+		}
+		
+		// update magnitude
+		magnitude = averageMagnitude / ((double) binCount);
+	}
+	
+	private void updateFFTDataSeries() {
+		int binCount = (int) ((max - min) / resolution + 1);
+		
+		// shift the array by 1
+		double[] y2 = new double[binCount + 1];
+		System.arraycopy(bins, 0, y2, 1, binCount);
+		
+		// update the FFTDataSeries
+		fftDataSeries.setValues(y2);
 	}
 	
 	public class FFTDataSeries extends DefaultGraph2DModel.DataSeries {
