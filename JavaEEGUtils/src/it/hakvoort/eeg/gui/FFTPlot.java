@@ -1,15 +1,12 @@
 package it.hakvoort.eeg.gui;
 
-import it.hakvoort.eeg.util.WindowedDataBuffer;
-import it.hakvoort.eeg.util.WindowedDataBuffer.Float;
+import it.hakvoort.eeg.util.FFTDataBuffer;
 import it.hakvoort.eeg.util.WindowedDataBuffer.Window;
 
 import java.awt.GridLayout;
 
 import javax.swing.JFrame;
 import javax.swing.JPanel;
-
-import edu.emory.mathcs.jtransforms.fft.FloatFFT_1D;
 
 import JSci.awt.DefaultGraph2DModel;
 import JSci.swing.JHistogram;
@@ -19,61 +16,16 @@ public class FFTPlot extends JFrame {
 	private DefaultGraph2DModel model = new DefaultGraph2DModel();
 	private FFTDataSeries fftDataSeries;
 	
-	private int intervalCounter = 0;
-	
-	// use this window
-	private Window window = Window.HANN;
-	
-	// perform fft after number of added samples
-	private int interval = 0;
-	
-	// the size of the buffer and fft
-	private int size;
-	
-	// the sample rate of the incomming samples
-	private int rate;
-	
-	// the resolution of the incomming samples
-	private double resolution;
-	
-	// min and max frequency
-	protected int min;
-	protected int max;
-	
-	// WindowedDataBuffer contains incomming samples and handles windowing
-	private WindowedDataBuffer.Float buffer;
-
-	// the FFT
-	private FloatFFT_1D fft;
-	
-	// target array for performing fft
-	private float[] target;
-	
-	// bin array
-	private double[] bins;
-	
-	// average magnitude of frequencies in bin
-	private double magnitude = 0d;
+	/// the FFT
+	private FFTDataBuffer buffer;
 	
 	// the histogram
 	private JHistogram hist;
 	
 	public FFTPlot(int size, int rate) {
 		super("FFT spectrum");
-
-		this.size = size;
-		this.rate = rate;
 		
-		this.resolution = ((double) rate) / ((double) size);
-		
-		this.min = 0;
-		this.max = size/2;
-		
-		buffer = new WindowedDataBuffer.Float(size);
-		fft = new FloatFFT_1D(size);
-
-		target = new float[size];
-		bins = new double[(int) ((max - min) / resolution + 1)];
+		buffer = new FFTDataBuffer(size, rate);
 		
 		fftDataSeries = new FFTDataSeries();
 		
@@ -103,114 +55,72 @@ public class FFTPlot extends JFrame {
 	}
 	
 	public void setInterval(int interval) {
-		this.interval = interval;
+		buffer.setInterval(interval);
 	}
 	
 	public int getInterval() {
-		return this.interval;
+		return buffer.getInterval();
 	}
 	
 	public void setWindow(Window window) {
-		this.window = window;
+		buffer.setWindow(window);
 	}
 	
 	public Window getWindow() {
-		return this.window;
+		return buffer.getWindow();
 	}
 	
 	public void setFrequencyRange(int min, int max) {
-		this.min = min;
-		this.max = max;
+		buffer.setFrequencyRange(min, max);
 	}
 	
 	public void setMinFrequency(int min) {
-		this.min = min;
+		buffer.setMinFrequency(min);
 	}
 	
 	public void setMaxFrequency(int max) {
-		this.max = max;
+		buffer.setMaxFrequency(max);
 	}
 	
 	public int getMinFrequency() {
-		return this.min;
+		return buffer.getMinFrequency();
 	}
 	
 	public int getMaxFrequency() {
-		return this.max;
+		return buffer.getMaxFrequency();
+	}
+	
+	public double getFrequencyResolution() {
+		return buffer.getFrequencyResolution();
+	}
+	
+	public int getBinCount() {
+		return buffer.getBinCount();
 	}
 	
 	public double[] getBins() {
-		return this.bins;
+		return buffer.getBins();
 	}
 	
 	public double getAverageMagnitude() {
-		return this.magnitude;
+		return buffer.getAverageMagnitude();
 	}
 	
 	public double getMagnitude(double frequency) {
-		if (frequency < min || frequency > max) {
-			return 0d;
-		}
-
-		if(frequency % resolution != 0) {
-			double offset = frequency % resolution;
-
-			double value1 = bins[(int) (((frequency - offset) - min) / resolution)];
-			double value2 = bins[(int) (((frequency - offset + resolution) - min) / resolution)];
-
-			double scale1 = 1 - offset / resolution;
-			double scale2 = offset / resolution;
-
-			return (scale1 * value1) + (scale2 * value2);
-		}
-
-		return bins[(int) ((frequency - min) / resolution)];
+		return buffer.getMagnitude(frequency);
 	}
 	
 	public void add(float value) {
 		buffer.add(value);
-		
-		intervalCounter++;
-		
-		if(intervalCounter >= interval) {
-			applyFFT();
-			updateFFTDataSeries();
-			intervalCounter = 0;
-		}
+		updateFFTDataSeries();
 	}
-	
-	private void applyFFT() {
-		int binCount = (int) ((max - min) / resolution + 1);
-		double averageMagnitude = 0;
 		
-		bins = new double[binCount];
-		
-		// get data from buffer
-		buffer.getData(target, window);
-		
-		// perform fft
-		fft.realForward(target);
-		
-		// get the values between the min and max frequencies
-		for(double f = min, i = 0; f < max; f += resolution, i++) {
-			int index = (int) ((f / resolution)) * 2;
-			
-			// magnitude of frequency
-			bins[(int) i] = Math.sqrt(target[index]*target[index] + target[index+1]*target[index+1]) / (size / 2);
-
-			averageMagnitude += bins[(int) i];
-		}
-		
-		// update magnitude
-		magnitude = averageMagnitude / ((double) binCount);
-	}
-	
 	private void updateFFTDataSeries() {
-		int binCount = (int) ((max - min) / resolution + 1);
+		int binCount = buffer.getBinCount();
 		
 		// shift the array by 1
 		double[] y2 = new double[binCount + 1];
-		System.arraycopy(bins, 0, y2, 1, binCount);
+		System.arraycopy(buffer.getBins(), 0, y2, 1, binCount);
 		
 		// update the FFTDataSeries
 		fftDataSeries.setValues(y2);
@@ -224,12 +134,12 @@ public class FFTPlot extends JFrame {
 		
 		@Override
 		public float getXCoord(int x) {
-			return (float) (min + ((x) * resolution));
+			return (float) (buffer.getMinFrequency() + ((x) * buffer.getFrequencyResolution()));
 		}
 		
 		@Override
 		public int length() {
-			return (int) ((max - min) / resolution + 1);
+			return (int) ((buffer.getMaxFrequency() - buffer.getMinFrequency()) / buffer.getFrequencyResolution() + 1);
 		}
 	}
 }
