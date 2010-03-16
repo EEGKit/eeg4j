@@ -1,7 +1,5 @@
 package it.hakvoort.nia;
 
-import it.hakvoort.eeg.gui.RawSignalPlot;
-
 import java.io.BufferedWriter;
 import java.io.FileWriter;
 import java.io.IOException;
