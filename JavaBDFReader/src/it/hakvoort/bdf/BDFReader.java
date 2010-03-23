@@ -18,7 +18,7 @@ public class BDFReader {
 	private int THRESHOLD_MIN = 2;
 	private int THRESHOLD_MAX = 4;
 	
-	private int frequency = 0;
+	private int frequency = -1;
 
 	// the number of samples per second
 	private int sampleRate = 0;
@@ -283,14 +283,12 @@ public class BDFReader {
 	}
 	
 	/**
-	 * BDFDataReader, fetches the first BDFSample from the queue and sends it to all listeners.
+	 * BDFDataReader, fetches the first BDFRecord from the queue and sends it to all listeners.
 	 */
 	private class BDFDataReader extends Thread {
 
 		public void run() {
 			while(open || !records.isEmpty()) {
-				
-				long t1 = System.nanoTime();
 				
 				BDFDataRecord record = records.poll();
 				
@@ -304,25 +302,11 @@ public class BDFReader {
 					}
 				}
 				
-				long t2 = System.nanoTime();
-				
 				try {
-					if(frequency == 0) {
-						long ns = (int) (((1000000000l / sampleRate)) - (t2 - t1)); 
-						
-						if(ns <= 0) {
-							continue;
-						}
-						
-						sleep((ns/1000000), (int) (ns%1000000));
+					if(frequency == -1) {
+						sleep(Math.round(1000l / (double) sampleRate));
 					} else if(frequency > 0) {
-						long ns = (int) (((1000000000l / frequency)) - (t2 - t1)); 
-						
-						if(ns <= 0) {
-							continue;
-						}
-						
-						sleep((ns/1000000), (int) (ns%1000000));
+						sleep(Math.round(1000l / (double) frequency));
 					} else {
 						// full speed
 					}
