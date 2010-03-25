@@ -4,15 +4,10 @@ import it.hakvoort.eeg.util.WindowedDataBuffer.Window;
 import edu.emory.mathcs.jtransforms.fft.FloatFFT_1D;
 
 public class FFTDataBuffer {
-
-	private int intervalCounter = 0;
 	
 	// use this window
 	private Window window = Window.HANN;
-	
-	// perform fft after number of added samples
-	private int interval = 0;
-	
+		
 	// the size of the buffer and fft
 	private int size;
 	
@@ -56,15 +51,7 @@ public class FFTDataBuffer {
 		target = new float[size];
 		bins = new double[getBinCount()];
 	}
-	
-	public void setInterval(int interval) {
-		this.interval = interval;
-	}
-	
-	public int getInterval() {
-		return this.interval;
-	}
-	
+		
 	public void setWindow(Window window) {
 		this.window = window;
 	}
@@ -132,16 +119,9 @@ public class FFTDataBuffer {
 	
 	public void add(float value) {
 		buffer.add(value);
-		
-		intervalCounter++;
-		
-		if(intervalCounter >= interval) {
-			applyFFT();
-			intervalCounter = 0;
-		}
 	}
 	
-	private void applyFFT() {
+	public void applyFFT() {
 		int binCount = getBinCount();
 		double averageMagnitude = 0;
 		

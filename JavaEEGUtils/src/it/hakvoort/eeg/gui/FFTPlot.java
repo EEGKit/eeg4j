@@ -13,8 +13,13 @@ import JSci.swing.JHistogram;
 
 public class FFTPlot extends JFrame {
 	
+	private int intervalCounter = 0;
+	
 	private DefaultGraph2DModel model = new DefaultGraph2DModel();
 	private FFTDataSeries fftDataSeries;
+	
+	// update fft after number of added samples
+	private int interval = 0;
 	
 	/// the FFT
 	private FFTDataBuffer buffer;
@@ -55,11 +60,11 @@ public class FFTPlot extends JFrame {
 	}
 	
 	public void setInterval(int interval) {
-		buffer.setInterval(interval);
+		this.interval = interval;
 	}
 	
 	public int getInterval() {
-		return buffer.getInterval();
+		return this.interval;
 	}
 	
 	public void setWindow(Window window) {
@@ -112,7 +117,15 @@ public class FFTPlot extends JFrame {
 	
 	public void add(float value) {
 		buffer.add(value);
-		updateFFTDataSeries();
+		
+		intervalCounter++;
+		
+		if(intervalCounter >= interval) {
+			buffer.applyFFT();
+			updateFFTDataSeries();
+			
+			intervalCounter = 0;
+		}
 	}
 		
 	private void updateFFTDataSeries() {
