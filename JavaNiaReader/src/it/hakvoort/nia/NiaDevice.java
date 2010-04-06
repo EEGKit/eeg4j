@@ -63,6 +63,7 @@ public class NiaDevice {
 	// the number of connection attempts
 	private int attempt = 0;
 	
+	// a queue with contains all incomming (and missing) samples
 	private ConcurrentLinkedQueue<NiaSample> samples = new ConcurrentLinkedQueue<NiaSample>();
 	
 	public NiaDevice() {
@@ -96,9 +97,8 @@ public class NiaDevice {
 		if(connected) {
 			System.out.println(String.format("Connected to NIA device."));
 
-			deviceReader.start();
-			deviceReader.setPriority(Thread.MAX_PRIORITY);
 			dataReader.start();
+			deviceReader.start();
 		} else {
 			System.err.println(String.format("Could not connect to NIA device. Stopped after %s attemps", attempt));
 		}
@@ -108,15 +108,15 @@ public class NiaDevice {
 	 * Stop the NiaDecive from further processing new data
 	 */
 	public void stop() {
-		connected = false;
-		
 		if(this.device.isOpen()) {
 			try {
 				this.device.close();
 			} catch(USBException e) {
 				System.err.println(String.format("Could not disconnect the NIA device."));
 			}
-		}		
+		}
+		
+		connected = false;
 	}
 	
 	public void setSampleRate(int sampleRate) {
@@ -179,6 +179,8 @@ public class NiaDevice {
 	private class NiaDeviceReader extends Thread {
 		
 		private byte buffer[] = new byte[55];
+		private int offset = 0;
+		private int pMiscount = 0;
 		
 		public FileWriter fileWriter = null; 
 		public BufferedWriter out = null;
@@ -197,21 +199,9 @@ public class NiaDevice {
 				}
 			}
 			
-			long start = System.nanoTime();
-			
-			long previousSampleTime = 0;
-			
-			long nanoPerSample = 1000000000l / sampleRate;
-			
-			int sendSamples = 0;
-
-			long prevTime = start;
-
 			while(connected) {
 				try {
-					long beforeReadTime = System.nanoTime() - start;
-					device.readInterrupt(NiaDevice.ENDPOINT_IN, buffer, buffer.length, 2000, false);
-					long afterReadTime = System.nanoTime() - start;
+					device.readBulk(NiaDevice.ENDPOINT_IN, buffer, buffer.length, 2000, false);
 					
 					if(logging) {
 						logData();
@@ -225,17 +215,40 @@ public class NiaDevice {
 
 					// fetch the total number of misses, divided over 2 bytes (litle endian)
 					int miscount = ((buffer[51] & 0xFF) << 8) | (buffer[50] & 0xFF);
+					
+					// calculate delta miscount, if miscount is smaller than pMiscount, there was an overflow
+					int dMiscount = (miscount < pMiscount) ? ((miscount + 0xFFFF) - pMiscount) : (miscount - pMiscount);
 										
-					long readDuration = afterReadTime - beforeReadTime;
+					// store last miscount
+					pMiscount = miscount;
+					
+					// update the offset
+					offset += dMiscount;
+					
+					// check if offset is larger than the size of Nia's internal buffer
+					if(offset >= INTERNAL_BUFFER_SIZE) {
 
-					// average length of a sample in ns
-					long sampleDuration = readDuration / nSamples;
+						// internal buffer of Nia is full, report missing samples
+						for(int i=0; i < (offset - offset%INTERNAL_BUFFER_SIZE); i++) {
+							samples.add(new NiaSample((hitcount - offset - nSamples) + i, MISSING_SAMPLE_VALUE));
+							
+							synchronized(samples) {
+								samples.notifyAll();
+							}
+						}
+						
+						// catch up, don't fall to far behind
+						offset %= INTERNAL_BUFFER_SIZE;
+					}
 					
 					// fetch the samples. each sample is divided over 3 bytes, litle endian
-					for(int i=0; i < nSamples; i++) {
+					for(int i=0; i < nSamples*3; i+=3) {
+						
+						// get sample number
+						int number = (hitcount - offset - nSamples) + (i/3);
 						
 						// get sample value
-						int value = (buffer[i*3] & 0xFF) | ((buffer[i*3+1] & 0xFF) << 8) | ((buffer[i*3+2] & 0xFF) << 16);
+						int value = (buffer[i] & 0xFF) | ((buffer[i+1] & 0xFF) << 8) | ((buffer[i+2] & 0xFF) << 16);
 						
 						// according to the HID information of the device, sample are between -8388608 and 8388607
 						// meaning the sample has a sign bit and is in two's complement.
@@ -243,39 +256,16 @@ public class NiaDevice {
 							value = ~(value ^ 0x7fffff) + 0x800000;
 						}
 						
-						long sampleTime = beforeReadTime + sampleDuration * i;
-						
-						if(!(previousSampleTime + nanoPerSample <= sampleTime)) {
-							continue;
-						}
-
-						sampleTime = (sampleTime / nanoPerSample) * nanoPerSample;
-
-						long sampleDiff = sampleTime - previousSampleTime;
-
-						while(sampleDiff / nanoPerSample > 1) {
-							try {
-								samples.add(new NiaSample(sendSamples++, NiaDevice.MISSING_SAMPLE_VALUE));
-								synchronized (samples) {
-									samples.notifyAll();
-								}
-							} catch (IllegalStateException e) {
-							}
-							
-							// insert empty sample
-							sampleDiff -= nanoPerSample;
-						}
-						
 						try {
-							samples.add(new NiaSample(sendSamples++, value));
-							synchronized (samples) {
+							samples.add(new NiaSample(number, value));
+
+							synchronized(samples) {
 								samples.notifyAll();
 							}
-						} catch (IllegalStateException e) {
+						} catch(IllegalStateException e) {
+							
 						}
-						
-						previousSampleTime = sampleTime;
-					}			
+					}					
 				} catch(USBException e) {
 					System.err.println(e.getMessage());
 					connected = false;
@@ -337,11 +327,13 @@ public class NiaDevice {
 							
 						}
 					}
-				}
-				
-				while(!samples.isEmpty()) {
-					fireReceivedSample(samples.poll());
-				}
+					
+					while(!samples.isEmpty()) {
+						// TODO: add signal based on sample rate
+						
+						fireReceivedSample(samples.poll());
+					}
+				}		
 			}
 		}
 	}
