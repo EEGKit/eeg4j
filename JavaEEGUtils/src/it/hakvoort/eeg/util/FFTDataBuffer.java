@@ -51,7 +51,15 @@ public class FFTDataBuffer {
 		target = new float[size];
 		bins = new double[getBinCount()];
 	}
-		
+	
+	public void setScale(float scale) {
+		buffer.setScale(scale);
+	}
+	
+	public float getScale() {
+		return buffer.getScale();
+	}
+	
 	public void setWindow(Window window) {
 		this.window = window;
 	}

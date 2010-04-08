@@ -4,10 +4,21 @@ import java.util.Arrays;
 
 public abstract class DataBuffer {
 	
-	public int index = 0;
-	public int size = 0;
+	protected int index = 0;
+	protected int size = 0;
 	
-	public int capacity;
+	protected int capacity;
+	
+	// the scale for incoming data
+	protected float scale = 1.0f;
+	
+	public void setScale(float scale) {
+		this.scale = scale;
+	}
+	
+	public float getScale() {
+		return this.scale;
+	}
 	
 	public DataBuffer(int capacity) {
 		this.capacity = capacity;
@@ -25,7 +36,7 @@ public abstract class DataBuffer {
 		}
 				
 		public synchronized void add(float value) {
-			data[index] = value;
+			data[index] = value * scale;
 			index = (index+1) % capacity;
 			size = Math.min(size+1, capacity);
 		}
@@ -40,7 +51,7 @@ public abstract class DataBuffer {
 	public static class Double extends DataBuffer {
 		
 		public double[] data;
-
+		
 		public Double(int capacity) {
 			super(capacity);
 			
@@ -49,7 +60,7 @@ public abstract class DataBuffer {
 		}
 		
 		public void add(double value) {
-			data[index] = value;
+			data[index] = value * scale;
 			index = (index+1) % capacity;
 			size = Math.min(size+1, capacity);
 		}

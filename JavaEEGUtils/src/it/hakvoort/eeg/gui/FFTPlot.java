@@ -55,6 +55,14 @@ public class FFTPlot extends JFrame {
         setVisible(true);	
 	}
 	
+	public void setScale(float scale) {
+		buffer.setScale(scale);
+	}
+	
+	public float getScale() {
+		return buffer.getScale();
+	}
+	
 	public void setYExtrema(int min, int max) {
 		hist.setYExtrema(min, max);
 	}

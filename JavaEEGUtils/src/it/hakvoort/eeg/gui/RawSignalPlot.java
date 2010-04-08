@@ -44,9 +44,6 @@ public class RawSignalPlot extends JFrame {
 	// startTime for calculating samples per second
 	private long startTime = 0;
 	
-	// the scale for incoming data
-	private float scale = 1.0f;
-	
 	public RawSignalPlot(int size) {
 		super("Raw Signal");
 				
@@ -82,11 +79,11 @@ public class RawSignalPlot extends JFrame {
 	}
 	
 	public void setScale(float scale) {
-		this.scale = scale;
+		buffer.setScale(scale);
 	}
 	
 	public float getScale() {
-		return this.scale;
+		return buffer.getScale();
 	}
 	
 	public void setYExtrema(int min, int max) {
@@ -114,7 +111,7 @@ public class RawSignalPlot extends JFrame {
 	}
 	
 	public void add(float value) {
-		buffer.add(value * scale);
+		buffer.add(value);
 		
 		samples++;
 		
