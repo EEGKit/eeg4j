@@ -43,7 +43,7 @@ public class FFTDataBuffer {
 		this.resolution = ((double) rate) / ((double) size);
 		
 		this.min = 0;
-		this.max = size/2;
+		this.max = rate/2;
 		
 		buffer = new WindowedDataBuffer.Float(size);
 		fft = new FloatFFT_1D(size);
