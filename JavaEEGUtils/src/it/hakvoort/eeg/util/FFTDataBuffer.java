@@ -69,16 +69,16 @@ public class FFTDataBuffer {
 	}
 	
 	public void setFrequencyRange(int min, int max) {
-		this.min = min;
-		this.max = max;
+		this.setMinFrequency(min);
+		this.setMaxFrequency(max);
 	}
 	
 	public void setMinFrequency(int min) {
-		this.min = min;
+		this.min = Math.max(min, 0);
 	}
 	
 	public void setMaxFrequency(int max) {
-		this.max = max;
+		this.max = Math.min(max, this.rate / 2);
 	}
 	
 	public int getMinFrequency() {
