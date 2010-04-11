@@ -307,8 +307,8 @@ public class NiaDevice2 {
 			}
 			
 			try {
-				usbPipe.getUsbEndpoint().getUsbInterface().release();
 				usbPipe.close();
+				usbPipe.getUsbEndpoint().getUsbInterface().release();
 			} catch(UsbException e) {
 				e.printStackTrace();
 			}
