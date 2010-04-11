@@ -1,6 +1,6 @@
 package it.hakvoort.nia.example;
 
-import it.hakvoort.nia.NiaDevice;
+import it.hakvoort.nia.NiaDevice2;
 import it.hakvoort.nia.NiaListener;
 import it.hakvoort.nia.NiaSample;
 
@@ -14,8 +14,8 @@ public class ExampleNiaReader implements NiaListener {
 	static int counter = 0;
 	
 	public static void main(String[] args) {
-		// create a NiaDevice
-		NiaDevice nia = new NiaDevice();
+		// create a NiaDevice or NiaDevice2
+		NiaDevice2 nia = new NiaDevice2();
 		
 		// register this class as listener
 		nia.addListener(new ExampleNiaReader());
