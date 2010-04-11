@@ -180,7 +180,12 @@ public class NiaDevice {
 		
 		private byte buffer[] = new byte[55];
 		private int offset = 0;
+		
+		private int counter = 0;
+		
 		private int pMiscount = 0;
+		
+		private int pHitcount = 0;
 		
 		public FileWriter fileWriter = null; 
 		public BufferedWriter out = null;
@@ -199,7 +204,9 @@ public class NiaDevice {
 				}
 			}
 			
-			while(connected) {
+			boolean insync = false;
+			
+			while(connected) {				
 				try {
 					device.readBulk(NiaDevice.ENDPOINT_IN, buffer, buffer.length, 2000, false);
 					
@@ -209,46 +216,70 @@ public class NiaDevice {
 					
 					// get the number of samples
 					byte nSamples = buffer[54];
-
+	
 					// fetch the total number of hits, divided over 2 bytes (litle endian)
 					int hitcount = ((buffer[53] & 0xFF) << 8) | (buffer[52] & 0xFF);
-
+	
 					// fetch the total number of misses, divided over 2 bytes (litle endian)
 					int miscount = ((buffer[51] & 0xFF) << 8) | (buffer[50] & 0xFF);
 					
+					// calculate delta hitcount, if hitcount is smaller than pHitcount, there was an overflow 
+					// (use 0x10000 instead of 0xFFFF), you need to take zero in account!
+					int dHitcount = (hitcount < pHitcount) ? ((hitcount + 0x10000) - pHitcount) : (hitcount - pHitcount);
+					
 					// calculate delta miscount, if miscount is smaller than pMiscount, there was an overflow
-					int dMiscount = (miscount < pMiscount) ? ((miscount + 0xFFFF) - pMiscount) : (miscount - pMiscount);
-										
+					// (use 0x10000 instead of 0xFFFF), you need to take zero in account!
+					int dMiscount = (miscount < (pMiscount-16)) ? ((miscount + 0x10000) - pMiscount) : (miscount - pMiscount);
+					
 					// store last miscount
 					pMiscount = miscount;
+					
+					// store last hitcount
+					pHitcount = hitcount;
+					
+					if(nSamples < 16 && dMiscount == 0) {
+						insync = true;
+					}
+					
+					// TODO: what if never insync?
+					if(!insync) {
+						continue;
+					}
 					
 					// update the offset
 					offset += dMiscount;
 					
-					// check if offset is larger than the size of Nia's internal buffer
-					if(offset >= INTERNAL_BUFFER_SIZE) {
+					// update cycle counter
+					counter += dHitcount;
 
-						// internal buffer of Nia is full, report missing samples
-						for(int i=0; i < (offset - offset%INTERNAL_BUFFER_SIZE); i++) {
-							samples.add(new NiaSample((hitcount - offset - nSamples) + i, MISSING_SAMPLE_VALUE));
+					// report missing samples
+					for(int i=0; i < (offset - (offset%32)); i++) {
+						
+						// get sample number
+						int number = ((counter - offset) - nSamples) + i;
+					
+						try {
+							samples.add(new NiaSample(number, NiaDevice.MISSING_SAMPLE_VALUE));
 							
 							synchronized(samples) {
 								samples.notifyAll();
 							}
-						}
-						
-						// catch up, don't fall to far behind
-						offset %= INTERNAL_BUFFER_SIZE;
+						} catch(IllegalStateException e) {
+							
+						}	
 					}
 					
+					// update offset, don't fall to far behind
+					offset %= INTERNAL_BUFFER_SIZE;
+					
 					// fetch the samples. each sample is divided over 3 bytes, litle endian
-					for(int i=0; i < nSamples*3; i+=3) {
+					for(int i=0; i < nSamples; i++) {
 						
 						// get sample number
-						int number = (hitcount - offset - nSamples) + (i/3);
+						int number = ((counter - offset) - nSamples) + i;
 						
 						// get sample value
-						int value = (buffer[i] & 0xFF) | ((buffer[i+1] & 0xFF) << 8) | ((buffer[i+2] & 0xFF) << 16);
+						int value = (buffer[i*3] & 0xFF) | ((buffer[i*3+1] & 0xFF) << 8) | ((buffer[i*3+2] & 0xFF) << 16);
 						
 						// according to the HID information of the device, sample are between -8388608 and 8388607
 						// meaning the sample has a sign bit and is in two's complement.
@@ -258,26 +289,27 @@ public class NiaDevice {
 						
 						try {
 							samples.add(new NiaSample(number, value));
-
+	
 							synchronized(samples) {
 								samples.notifyAll();
 							}
 						} catch(IllegalStateException e) {
 							
 						}
-					}					
-				} catch(USBException e) {
-					System.err.println(e.getMessage());
-					connected = false;
-				}
-			}
+					}
 			
-			if(logging) {
-				try {
-					out.close();
-					fileWriter.close();
-				} catch (IOException e) {
+					if(logging) {
+						try {
+							out.close();
+							fileWriter.close();
+						} catch (IOException e) {
+							e.printStackTrace();
+						}
+					}
+				} catch (USBException e) {
 					e.printStackTrace();
+
+					connected = false;
 				}
 			}
 			
