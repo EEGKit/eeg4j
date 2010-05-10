@@ -149,5 +149,31 @@ public class BDFClient {
 			connected = false;
 			System.err.println("BDFClient disconnected.");
 		}
-	}	
+	}
+
+	public static void main(String[] args) {
+		if(args.length < 3) {
+			System.out.println("Usage: BDFClient HOSTNAME PORT CHANNELS");
+			System.out.println("HOSTNAME : hostname of the BDF server.");
+			System.out.println("PORT     : port number of the BDF server.");
+			System.out.println("CHANNELS : the number of channels in the BDF data stream.");
+			
+			return;
+		}
+		
+		String HOST 	= args[0];
+		int PORT 		= Integer.parseInt(args[1]);
+		int CHANNELS 	= Integer.parseInt(args[2]);
+		
+		BDFClient client = new BDFClient(HOST, PORT, CHANNELS);
+		client.addListener(new BDFListener() {
+			
+			@Override
+			public void receivedRecord(BDFDataRecord record) {
+				System.out.println(record.toString());
+			}
+		});
+		
+		client.connect();
+	}
 }
