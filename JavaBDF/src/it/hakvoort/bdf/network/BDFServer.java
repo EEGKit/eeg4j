@@ -74,6 +74,7 @@ public class BDFServer implements Runnable {
 			HOST = InetAddress.getLocalHost().getHostAddress();
 			
 			System.out.println(String.format("BDFServer ready and listening for connections on: %s:%s.", HOST, PORT));
+			System.out.println(String.format("Number of channels in TCP stream: %s ", reader.getHeader().getNumChannels()));
 			
 			while(listening) {
 				Socket socket = serverSocket.accept();
@@ -173,5 +174,49 @@ public class BDFServer implements Runnable {
 				connected = false;
 			}
 		}
+	}
+	
+	public static void main(String[] args) {
+		if(args.length < 2) {
+			System.out.println("Usage: BDFServer [-r] FILE PORT [FREQUENCY]");
+			System.out.println("-r        : repeat the file when the end is reached.");
+			System.out.println("FILE      : the BDF file.");
+			System.out.println("PORT      : port number for connecting clients.");
+			System.out.println("FREQUENCY : the frequency for sending data. 0 for full speed, -1 for file based sample rate (default).");
+			return;
+		}
+		
+		String file		= "";
+		boolean repeat	= false;
+		int frequency	= -1;
+		
+		int PORT		= 0;
+
+		if(args[0].equals("-r")) {
+			file 	= args[1];
+			repeat 	= true;
+			
+			if(args.length > 3) {
+				frequency = Integer.parseInt(args[3]);
+			}
+			
+			PORT = Integer.parseInt(args[2]);
+		} else {
+			file = args[0];
+			
+			if(args.length > 2) {
+				frequency = Integer.parseInt(args[2]);
+			}
+			
+			PORT = Integer.parseInt(args[1]);			
+		}
+		
+		
+		BDFReader reader = new BDFReader(file);
+		reader.setRepeat(repeat);
+		reader.setFrequency(frequency);
+		
+		BDFServer server = new BDFServer(reader, PORT);
+		server.start();
 	}
 }
