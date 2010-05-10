@@ -7,10 +7,13 @@ import it.hakvoort.bdf.BDFReader;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
+import java.net.Inet4Address;
 import java.net.InetAddress;
 import java.net.InetSocketAddress;
+import java.net.NetworkInterface;
 import java.net.ServerSocket;
 import java.net.Socket;
+import java.util.Enumeration;
 import java.util.concurrent.atomic.AtomicInteger;
 
 /**
@@ -72,6 +75,30 @@ public class BDFServer implements Runnable {
 			serverSocket.bind(new InetSocketAddress(PORT));
 			
 			HOST = InetAddress.getLocalHost().getHostAddress();
+			
+			// get external ip4address
+			Enumeration<NetworkInterface> interfaces = NetworkInterface.getNetworkInterfaces();
+			
+			while(interfaces.hasMoreElements()) {
+				NetworkInterface networkInterface = interfaces.nextElement();
+				
+				// localhost is loopback
+				if(networkInterface.isLoopback()) {
+					continue;
+				}
+				
+				Enumeration<InetAddress> inetAddresses = networkInterface.getInetAddresses();
+				
+				while(inetAddresses.hasMoreElements()) {
+					
+					InetAddress address = inetAddresses.nextElement();
+					
+					if(address instanceof Inet4Address) {
+						HOST = address.getHostAddress();
+					}
+				}
+			}
+			
 			
 			System.out.println(String.format("BDFServer ready and listening for connections on: %s:%s.", HOST, PORT));
 			System.out.println(String.format("Number of channels in TCP stream: %s ", reader.getHeader().getNumChannels()));
