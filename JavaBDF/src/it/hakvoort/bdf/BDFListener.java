@@ -7,6 +7,6 @@ package it.hakvoort.bdf;
  */
 public interface BDFListener {
 
-	public void receivedRecord(BDFDataRecord record);
+	public void receivedSample(BDFSample sample);
 	
 }

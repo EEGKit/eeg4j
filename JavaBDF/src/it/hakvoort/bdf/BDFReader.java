@@ -1,8 +1,8 @@
 package it.hakvoort.bdf;
 
 import java.io.FileInputStream;
-import java.io.FileNotFoundException;
 import java.io.IOException;
+import java.io.InputStream;
 import java.nio.ByteBuffer;
 import java.util.List;
 import java.util.concurrent.ConcurrentLinkedQueue;
@@ -26,11 +26,14 @@ public class BDFReader {
 	// listeners waiting for samples
 	protected List<BDFListener> listeners = new CopyOnWriteArrayList<BDFListener>();
 	
-	// the filename
-	private String file = null;
-		
-	// the bdf file inputstream
-	private FileInputStream inputStream;
+	// the pathname of the bdf file
+	private String pathname = null;
+	
+	// the bdf file
+	private BDFFile bdf = null;
+	
+	// the InputStream for reading data
+	private InputStream inputStream = null;
 	
 	// the fileReader, reading the data and puts data in the queue.
 	private BDFFileReader fileReader = new BDFFileReader();
@@ -38,8 +41,8 @@ public class BDFReader {
 	// the dataReader, notifying the listeners about new data
 	private BDFDataReader dataReader = new BDFDataReader();
 		
-	// if the file is open
-	private boolean open = false;
+	// if the file is opened
+//	private boolean open = false;
 
 	// if the file and data readers are running
 	private boolean running = false;
@@ -47,15 +50,13 @@ public class BDFReader {
 	// should the reader start at the beginning of the file when reaching the end
 	private boolean repeat = false;
 	
-	// the header which is fetched from the bdf file
-	private BDFHeader header;
-
-	// records read from the bdf file
-	private ConcurrentLinkedQueue<BDFDataRecord> records = new ConcurrentLinkedQueue<BDFDataRecord>();
+	// samples read from the bdf file
+	private ConcurrentLinkedQueue<BDFSample> samples = new ConcurrentLinkedQueue<BDFSample>();
 	
-	public BDFReader(String location) {
-		this.file = location;
-		open();
+	public BDFReader(BDFFile bdf) {
+		this.bdf = bdf;
+		
+		sampleRate = bdf.getSampleRate();
 	}
 		
 	public int getFrequency() {
@@ -94,44 +95,6 @@ public class BDFReader {
 		this.repeat = repeat;
 	}
 	
-	/*
-	 * Open the BDF file and read the header
-	 */
-	private void open() {
-		if(!open) {
-			try {
-				inputStream = new FileInputStream(file);
-				
-				// create a BDFHeader
-				header = new BDFHeader();
-				
-				// get the main header part
-				byte[] main = new byte[256];				
-				inputStream.read(main);
-				header.setMainHeader(main);
-
-				// get the channel header part
-				byte[] signals = new byte[256*header.getNumChannels()];
-				inputStream.read(signals);
-				header.setChannelHeader(signals);
-				
-				sampleRate = header.getChannel(0).getNumSamples();
-				
-				open = true;
-			} catch (FileNotFoundException e) {
-				System.err.println(String.format("BDFReader: BFD file not found: '%s'", file));
-			} catch (IOException e) {
-				System.err.println(String.format("BDFReader: Error during reading BDF header, file closed."));
-			} catch (BDFException e) {
-				System.err.println(String.format("BDFReader: %s.", e.getMessage()));
-			}
-		}
-	}
-	
-	public boolean isOpen() {
-		return this.open;
-	}
-	
 	public boolean isRunning() {
 		return this.running;
 	}
@@ -140,12 +103,8 @@ public class BDFReader {
 	 * Start the BDFReader, start the read and data threads.
 	 */
 	public void start() {
-		if(open) {
-			fileReader.start();
-			dataReader.start();
-		} else {
-			System.err.println(String.format("BDFReader: BDF file: '%s' is closed", file));
-		}
+		fileReader.start();
+		dataReader.start();
 		
 		running = true;
 	}
@@ -155,8 +114,6 @@ public class BDFReader {
 	 */
 	public void stop() {
 		running = false;
-		open = false;
-		records.clear();
 		
 		try {
 			inputStream.close();
@@ -165,8 +122,8 @@ public class BDFReader {
 		}
 	}
 	
-	public BDFHeader getHeader() {
-		return header;
+	public BDFFile getBDFFile() {
+		return bdf;
 	}
 	
 	public void addListener(BDFListener listener) {
@@ -186,16 +143,16 @@ public class BDFReader {
 	}
 	
 	/**
-	 * Send a sample to all listeners
+	 * Send a data record sample to all listeners
 	 */
-	public void fireReceivedSample(BDFDataRecord sample) {
+	public void fireReceivedDataRecordSample(BDFSample sample) {
 		for(BDFListener listener : listeners) {
-			listener.receivedRecord(sample);
+			listener.receivedSample(sample);
 		}
 	}
 	
 	/**
-	 * BDFFileReader, reads data from the BDF file and stores it in a temporary buffer.
+	 * BDFFileReader, reads records from the BDF file and stores it in a temporary buffer.
 	 * The buffer will be converted into multiple BDFSamples and all samples are placed in a Queue for further processing.
 	 */
 	private class BDFFileReader extends Thread {
@@ -207,57 +164,102 @@ public class BDFReader {
 		}
 		
 		public void run() {
-			int[][] record = new int[header.getNumChannels()][];
 			
-			// get all records
-			while(open) {
+			// get number of channels
+			int numChannels = bdf.getNumChannels();
+			
+			if(numChannels == 0) {
+				System.err.println(String.format("NO BDFChannels were set."));
+				running = false;
+			}
+			
+			// get length of header
+			int length = Integer.parseInt(bdf.getHeader().getLength());
+			
+			// two dimensional array with size of sampleRate x numChannels
+			int[][] record = new int[numChannels][];
+			
+			try {
+				inputStream = new FileInputStream(bdf.getFile());
+				inputStream.skip(length);
+			} catch (IOException e) {
+				e.printStackTrace();
+			}
+			
+			// get all samples within a record
+			// records are store as a byte array, one after another. In 1 records there can be multiple channels.
+			//
+			// example below has 2 records, with 2 channels and a sampleRate of 3 samples per second.
+			//
+			// file 	[								 bdf file								]
+			// records	[              record1              |              record2              ]
+			// channels [    channel1     |    channel2     |    channel1     |    channel2     ]
+			// values	[ v11 | v12 | v13 | v21 | v22 | v23 | v14 | v15 | v16 | v24 | v25 | v26 ]
+			// bytes	[1 2 3|1 2 3|1 2 3|1 2 3|1 2 3|1 2 3|1 2 3|1 2 3|1 2 3|1 2 3|1 2 3|1 2 3]
+			while(running) {
 				try {
+					
+					// a buffer which can contain 1 channel of a record
 					byte[] data = new byte[sampleRate * 3];
 					
-					for(int i = 0; i < header.getNumChannels(); i++) {
+					// read channel for channel of a record
+					for(int i = 0; i < numChannels; i++) {
 						inputStream.read(data);
 						record[i] = parseChannel(data);
 					}
 					
-					// fill the queue with the data just read
-					for(int s = 0; s < sampleRate; s++) {
-						int[] samples = new int[header.getNumChannels()];
+					// create BDFSamples which contain the sample value for each channel.
+					// for the previous example this will eventually results in 6 samples, each with 2 values.
+					// 
+					// 			   values
+					// 	 -- record 1 --
+					// sample1	[ v11 | v21 ]
+					// sample2	[ v12 | v22 ]
+					// sample3  [ v13 | v23 ]
+					//   -- record 2 --
+					// sample4  [ v14 | v24 ]
+					// sample5  [ v15 | v26 ]
+					// sample6  [ v16 | v25 ]
+					for(int v = 0; v < sampleRate; v++) {
+
+						// new array for all values within the sample
+						int[] values = new int[numChannels];
 						
-						for(int c = 0; c < header.getNumChannels(); c++) {
-							samples[c] = record[c][s];
+						for(int c = 0; c < numChannels; c++) {
+							values[c] = record[c][v];
 						}
 						
-						records.add(new BDFDataRecord(counter++, samples));
+						samples.add(new BDFSample(counter++, values));
 					}
 
-					// check if the file is running out of data
+					// check if the file is running out of data, restart at the begin of the file
 					if(inputStream.available() <= 0) {
 						if(repeat) {
-							inputStream = new FileInputStream(file);
-							inputStream.skip(header.getLength());
+							inputStream = new FileInputStream(bdf.getFile());
+							inputStream.skip(length);
 							
 							// reset the counter
 							counter = 0;
 						} else {
-							open = false;
+							running = false;
 							break;
 						}
 					}
 					
-					if(records.size() >= THRESHOLD_MAX * sampleRate) {
+					if(samples.size() >= THRESHOLD_MAX * sampleRate) {
 						synchronized(this) {
 							this.wait();
 						}
 					}
 					
 				} catch(IOException e) {
-					open = false;
+					running = false;
 				} catch (InterruptedException e) {
 					e.printStackTrace();
 				}
 			}
 			
-			open = false;
+			running = false;
 		}
 		
 		private int[] parseChannel(byte[] data) {		
@@ -267,38 +269,38 @@ public class BDFReader {
 			
 			int counter = 0;
 			
-			byte[] sample = new byte[3];
+			byte[] bytes = new byte[3];
 			
 			while(buffer.remaining() > 0) {
-				buffer.get(sample);
-				values[counter++] = parseSample(sample);
+				buffer.get(bytes);
+				values[counter++] = parseValue(bytes);
 			}
 			
 			return values;
 		}
 		
-		private int parseSample(byte[] bytes) {
-			int sample = (bytes[0] & 0xFF) | ((bytes[1] & 0xFF) << 8) | ((bytes[2] & 0xFF) << 16);
-			sample = ~(sample ^ 0x7fffff) + 0x800000;
-			return sample;
+		private int parseValue(byte[] bytes) {
+			int value = (bytes[0] & 0xFF) | ((bytes[1] & 0xFF) << 8) | ((bytes[2] & 0xFF) << 16);
+			value = ~(value ^ 0x7fffff) + 0x800000;
+			return value;
 		}
 	}
 	
 	/**
-	 * BDFDataReader, fetches the first BDFRecord from the queue and sends it to all listeners.
+	 * BDFDataReader, fetches the first BDFDataRecordSample from the queue and sends it to all listeners.
 	 */
 	private class BDFDataReader extends Thread {
 
 		public void run() {
-			while(open || !records.isEmpty()) {
+			while(running || !samples.isEmpty()) {
 				
-				BDFDataRecord record = records.poll();
+				BDFSample recordSample = samples.poll();
 				
-				if(record != null) {
-					fireReceivedSample(record);
+				if(recordSample != null) {
+					fireReceivedDataRecordSample(recordSample);
 				}
 				
-				if(records.size() < THRESHOLD_MIN * sampleRate) {
+				if(samples.size() < THRESHOLD_MIN * sampleRate) {
 					synchronized(fileReader) {
 						fileReader.notify();
 					}

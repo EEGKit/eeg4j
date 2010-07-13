@@ -1,6 +1,6 @@
 package it.hakvoort.bdf.example;
 
-import it.hakvoort.bdf.BDFDataRecord;
+import it.hakvoort.bdf.BDFSample;
 import it.hakvoort.bdf.BDFListener;
 import it.hakvoort.bdf.network.BDFClient;
 
@@ -24,8 +24,8 @@ public class JavaBDFClientExample implements BDFListener {
 	}
 
 	@Override
-	public void receivedRecord(BDFDataRecord record) {
-		System.out.println(record.toString());
+	public void receivedSample(BDFSample sample) {
+		System.out.println(sample.toString());
 	}
 	
 	public static void main(String[] args) {

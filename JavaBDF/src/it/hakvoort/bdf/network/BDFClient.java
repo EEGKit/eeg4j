@@ -1,6 +1,6 @@
 package it.hakvoort.bdf.network;
 
-import it.hakvoort.bdf.BDFDataRecord;
+import it.hakvoort.bdf.BDFSample;
 import it.hakvoort.bdf.BDFListener;
 
 import java.io.IOException;
@@ -102,15 +102,15 @@ public class BDFClient {
 	/**
 	 * Send a sample to all listeners
 	 */
-	protected void fireReceivedRecord(BDFDataRecord record) {
+	protected void fireReceivedRecord(BDFSample sample) {
 		for(BDFListener listener : listeners) {
-			listener.receivedRecord(record);
+			listener.receivedSample(sample);
 		}
 	}
 	
 	/**
 	 * BDFClientInputReader reads data from the input stream. 
-	 * The data is converted into a BDFDataRecord and send to all listeners
+	 * The data is converted into a BDFSample and send to all listeners
 	 */
 	private class BDFClientInputReader implements Runnable {
 		
@@ -130,16 +130,16 @@ public class BDFClient {
 				while(connected && input.read(buffer) != -1) {
 					
 					for(int i=0; i<numChannels; i++) {
-						int sample = (buffer[i*3] & 0xFF) | ((buffer[i*3+1] & 0xFF) << 8) | ((buffer[i*3+2] & 0xFF) << 16);
+						int value = (buffer[i*3] & 0xFF) | ((buffer[i*3+1] & 0xFF) << 8) | ((buffer[i*3+2] & 0xFF) << 16);
 						
-						if((sample & 0x800000) != 0) {
-							sample = ~(sample ^ 0x7fffff) + 0x800000;
+						if((value & 0x800000) != 0) {
+							value = ~(value ^ 0x7fffff) + 0x800000;
 						}
 						
-						samples[i] = sample;
+						samples[i] = value;
 					}
 					
-					fireReceivedRecord(new BDFDataRecord(recordCounter, samples));
+					fireReceivedRecord(new BDFSample(recordCounter, samples));
 					recordCounter++;						
 				}
 			} catch(IOException e) {
@@ -169,8 +169,8 @@ public class BDFClient {
 		client.addListener(new BDFListener() {
 			
 			@Override
-			public void receivedRecord(BDFDataRecord record) {
-				System.out.println(record.toString());
+			public void receivedSample(BDFSample sample) {
+				System.out.println(sample.toString());
 			}
 		});
 		

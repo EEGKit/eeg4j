@@ -1,6 +1,8 @@
 package it.hakvoort.bdf.network;
 
-import it.hakvoort.bdf.BDFDataRecord;
+import it.hakvoort.bdf.BDFException;
+import it.hakvoort.bdf.BDFFile;
+import it.hakvoort.bdf.BDFSample;
 import it.hakvoort.bdf.BDFListener;
 import it.hakvoort.bdf.BDFReader;
 
@@ -44,8 +46,8 @@ public class BDFServer implements Runnable {
 	// the server thread
 	private Thread serverThread;
 	
-	public BDFServer(String file, int PORT) {
-		this(new BDFReader(file), PORT);
+	public BDFServer(BDFFile bdf, int PORT) {
+		this(bdf.getReader(), PORT);
 	}
 
 	public BDFServer(BDFReader reader, int PORT) {
@@ -99,9 +101,8 @@ public class BDFServer implements Runnable {
 				}
 			}
 			
-			
 			System.out.println(String.format("BDFServer ready and listening for connections on: %s:%s.", HOST, PORT));
-			System.out.println(String.format("Number of channels in TCP stream: %s ", reader.getHeader().getNumChannels()));
+			System.out.println(String.format("Number of channels in TCP stream: %s ", reader.getBDFFile().getHeader().getNumChannels()));
 			
 			while(listening) {
 				Socket socket = serverSocket.accept();
@@ -148,8 +149,8 @@ public class BDFServer implements Runnable {
 	}
 	
 	/**
-	 * BDFClientHandler handles unique client connections. The handler receives BDFDataRecords from the BDFReader and 
-	 * convert these into bytes before sending them over the network, mimicing Biosemi's ActiView network connection.
+	 * BDFClientHandler handles unique client connections. The handler receives BDFSamples from the BDFReader and 
+	 * convert these into bytes before sending them over the network, mimicking Biosemi's ActiView network connection.
 	 */
 	public class BDFClientHandler implements Runnable, BDFListener {
 		
@@ -184,15 +185,15 @@ public class BDFServer implements Runnable {
 		}
 		
 		@Override
-		public void receivedRecord(BDFDataRecord record) {
-			byte[] data = new byte[record.channels * 3];
+		public void receivedSample(BDFSample sample) {
+			byte[] data = new byte[sample.values.length * 3];
 			
-			for(int i=0; i<record.channels; i++) {
-				int sample = record.samples[i];
+			for(int i=0; i<sample.values.length; i++) {
+				int value = sample.values[i];
 				
-				data[i*3 + 0] = (byte) (sample & 0xFF);
-				data[i*3 + 1] = (byte) ((sample >> 8) & 0xFF);
-				data[i*3 + 2] = (byte) ((sample >>> 16) & 0xFF);
+				data[i*3 + 0] = (byte) (value & 0xFF);
+				data[i*3 + 1] = (byte) ((value >> 8) & 0xFF);
+				data[i*3 + 2] = (byte) ((value >>> 16) & 0xFF);
 			}
 			
 			try {
@@ -203,7 +204,7 @@ public class BDFServer implements Runnable {
 		}
 	}
 	
-	public static void main(String[] args) {
+	public static void main(String[] args) throws IOException, BDFException {
 		if(args.length < 2) {
 			System.out.println("Usage: BDFServer [-r] FILE PORT [FREQUENCY]");
 			System.out.println("-r        : repeat the file when the end is reached.");
@@ -213,14 +214,14 @@ public class BDFServer implements Runnable {
 			return;
 		}
 		
-		String file		= "";
+		String pathname	= "";
 		boolean repeat	= false;
 		int frequency	= -1;
 		
 		int PORT		= 0;
 
 		if(args[0].equals("-r")) {
-			file 	= args[1];
+			pathname 	= args[1];
 			repeat 	= true;
 			
 			if(args.length > 3) {
@@ -229,7 +230,7 @@ public class BDFServer implements Runnable {
 			
 			PORT = Integer.parseInt(args[2]);
 		} else {
-			file = args[0];
+			pathname = args[0];
 			
 			if(args.length > 2) {
 				frequency = Integer.parseInt(args[2]);
@@ -238,11 +239,12 @@ public class BDFServer implements Runnable {
 			PORT = Integer.parseInt(args[1]);			
 		}
 		
-		
-		BDFReader reader = new BDFReader(file);
+		BDFFile bdf = BDFFile.open(pathname);
+			
+		BDFReader reader = bdf.getReader();
 		reader.setRepeat(repeat);
 		reader.setFrequency(frequency);
-		
+			
 		BDFServer server = new BDFServer(reader, PORT);
 		server.start();
 	}

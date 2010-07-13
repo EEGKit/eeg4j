@@ -1,11 +1,10 @@
 package it.hakvoort.bdf;
 
 import java.nio.ByteBuffer;
-import java.text.Format;
-import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
-import java.util.Date;
+import java.util.Arrays;
+import java.util.Calendar;
 import java.util.List;
 
 /**
@@ -17,40 +16,54 @@ import java.util.List;
 public class BDFHeader {
 	
 	// version of this data format
-	private byte[] version = new byte[8];
+	public byte[] version = new byte[8];
 
 	// local patient identification
-	private byte[] patient = new byte[80];
+	public byte[] patient = new byte[80];
 	
 	// local recording identification
-	private byte[] recording = new byte[80];
+	public byte[] recording = new byte[80];
 	
 	// startdate of recording (dd.mm.yy)
-	private byte[] startdate = new byte[8];
+	public byte[] startdate = new byte[8];
 	
 	// starttime of recording (hh.mm.ss)
-	private byte[] starttime = new byte[8];
+	public byte[] starttime = new byte[8];
 	
 	// number of bytes in header record
-	private byte[] length = new byte[8];
+	public byte[] length = new byte[8];
 	
 	// reserved
-	private byte[] reserved = new byte[44];
+	public byte[] reserved = new byte[44];
 	
 	// number of data records (-1 if unknown)
-	private byte[] numRecords = new byte[8];
+	public byte[] numRecords = new byte[8];
 	
 	// duration of a data record, in seconds
-	private byte[] duration = new byte[8];
+	public byte[] duration = new byte[8];
 	
 	// number of channels (ns) in data record
-	private byte[] numChannels = new byte[4];
+	public byte[] numChannels = new byte[4];
 	
 	// ns (the channels)
 	private List<BDFChannel> channels = new ArrayList<BDFChannel>();
 	
 	public BDFHeader() {
 		
+		SimpleDateFormat format = new SimpleDateFormat("dd.MM.yy-HH.mm.ss");
+		String[] datetime = format.format(Calendar.getInstance().getTime()).split("-");
+			
+		// load default values
+		setVersion("0");
+		setPatient("");
+		setRecording("");
+		setStartDate(datetime[0]);
+		setStartTime(datetime[1]);
+		setLength("256");
+		setReserved("");
+		setNumRecords("-1");
+		setDuration("");
+		setNumChannels("0");
 	}
 	
 	/**
@@ -60,7 +73,7 @@ public class BDFHeader {
 	 * 			A byte array containing the main header data.
 	 * 
 	 */
-	public void setMainHeader(byte[] main) throws BDFException {
+	public void loadMainHeader(byte[] main) throws BDFException {
 		if(main.length != 256) {
 			throw new BDFException(String.format("Invalid BDF Main Header: %s", main));
 		}
@@ -85,14 +98,22 @@ public class BDFHeader {
 	 * @param 	channel
 	 * 			A byte array containing the header data of the channels.
 	 */
-	public void setChannelHeader(byte[] channel) throws BDFException {
-		if(channel.length != 256 * getNumChannels()) {
+	public void loadChannelHeader(byte[] channel) throws BDFException {
+		int numChannels = 0;
+		
+		try {
+			numChannels = Integer.parseInt(getNumChannels());
+		} catch(NumberFormatException e) {
+			throw new BDFException("Invalid number of channels in main header");
+		}
+		
+		if(channel.length != 256 * numChannels) {
 			throw new BDFException(String.format("Invalid BDF Channel Header: %s", channel));
 		}
 		
 		ByteBuffer buffer = ByteBuffer.wrap(channel);
 
-		for(int c = 0, offset = getNumChannels()-1; c < getNumChannels(); c++, offset--) {
+		for(int c = 0, offset = numChannels-1; c < numChannels; c++, offset--) {
 			BDFChannel bdfChannel = new BDFChannel();
 			
 			buffer.position(c*16);
@@ -136,8 +157,12 @@ public class BDFHeader {
      * @return  A summary string
      */
 	public String toString() {
-		ByteBuffer buffer = ByteBuffer.allocate(getLength());
-
+		return new String(getBytes());
+	}
+	
+	public byte[] getBytes() {
+		ByteBuffer buffer = ByteBuffer.allocate(computeLength());
+		
 		buffer.put(version);
 		buffer.put(patient);
 		buffer.put(recording);
@@ -149,7 +174,7 @@ public class BDFHeader {
 		buffer.put(duration);
 		buffer.put(numChannels);
 		
-		for(int c = 0, offset = getNumChannels()-1; c < channels.size(); c++, offset--) {
+		for(int c = 0, offset = channels.size()-1; c < channels.size(); c++, offset--) {
 			BDFChannel channel = channels.get(c);
 			
 			buffer.position(256 + c*16);
@@ -185,7 +210,7 @@ public class BDFHeader {
 			buffer.rewind();
 		}
 		
-		return new String(buffer.array());
+		return buffer.array();
 	}
 	
 	/**
@@ -195,6 +220,29 @@ public class BDFHeader {
 	 */
 	public String getVersion() {
 		return new String(version).trim();
+	}
+	
+	/**
+	 * Sets the version header part of the object.
+	 * 
+	 * @param 	version
+	 * 			A String containing the version data of the object.
+	 * 			version is truncating or padding with whitespace so it has the same length as the old version.
+	 */
+	public void setVersion(String version) {
+		Arrays.fill(this.version, (byte) ' ');
+		
+		// first byte is a non-ascii values
+		
+		// first get all characters
+		char[] chars = version.toCharArray();
+		
+		// copy byte value of first character
+		this.version[0] = (byte) chars[0];
+		
+		// copy remaining bytes
+		byte[] bytes = new String(chars, 1, chars.length-1).getBytes();
+		System.arraycopy(bytes, 0, this.version, 1, Math.min(bytes.length, this.version.length));
 	}
 
 	/**
@@ -207,6 +255,19 @@ public class BDFHeader {
 	}
 	
 	/**
+	 * Sets the patient header part of the object.
+	 * 
+	 * @param 	patient
+	 * 			A String containing the patient data of the object.
+	 * 			patient is truncating or padding with whitespace so it has the same length as the old patient.
+	 */
+	public void setPatient(String patient) {
+		Arrays.fill(this.patient, (byte) ' ');
+		byte[] bytes = patient.getBytes();
+		System.arraycopy(bytes, 0, this.patient, 0, Math.min(bytes.length, this.patient.length));
+	}
+	
+	/**
 	 * Returns the recording information of this object.
 	 * 
 	 * @return	the recording information.
@@ -216,28 +277,90 @@ public class BDFHeader {
 	}
 	
 	/**
-	 * Returns the start date and time of this object.
+	 * Sets the recording header part of the object.
 	 * 
-	 * @return	the start date and time.
+	 * @param 	recording
+	 * 			A String containing the recording data of the object.
+	 * 			recording is truncating or padding with whitespace so it has the same length as the old recording.
 	 */
-	public Date getStartTime() {
-		Format format = new SimpleDateFormat("dd.MM.yy-HH.mm.ss");
-		
-		try {
-			return (Date) format.parseObject(new String(startdate).trim() + "-" + new String(starttime).trim());
-		} catch (ParseException e) {
-			return null;
-		} 
+	public void setRecording(String recording) {
+		Arrays.fill(this.recording, (byte) ' ');
+		byte[] bytes = recording.getBytes();
+		System.arraycopy(bytes, 0, this.recording, 0, Math.min(bytes.length, this.recording.length));
+	}
+
+	/**
+	 * Returns the start date of this object.
+	 * 
+	 * @return	the start date.
+	 */
+	public String getStartDate() {
+		return new String(startdate).trim();
+	}
+
+	/**
+	 * Sets the startdate header part of the object.
+	 * 
+	 * @param 	startdate
+	 * 			A String containing the startdate of the object.
+	 */
+	public void setStartDate(String startdate) {
+		Arrays.fill(this.startdate, (byte) ' ');
+		byte[] bytes = startdate.getBytes();
+		System.arraycopy(bytes, 0, this.startdate, 0, Math.min(bytes.length, this.startdate.length));	
 	}
 	
 	/**
-	 * Returns the length of this object. {(N + 1) * 256} bytes, where N is the number of channels in this object.
+	 * Returns the start time of this object.
+	 * 
+	 * @return	the start time.
+	 */
+	public String getStartTime() {
+		return new String(starttime).trim();
+	}
+	
+	/**
+	 * Sets the starttime header part of the object.
+	 * 
+	 * @param 	starttime
+	 * 			A String containing the starttime of the object.
+	 */
+	public void setStartTime(String starttime) {
+		Arrays.fill(this.starttime, (byte) ' ');
+		byte[] bytes = starttime.getBytes();
+		System.arraycopy(bytes, 0, this.starttime, 0, Math.min(bytes.length, this.starttime.length));	
+	}
+	
+	/**
+	 * Returns the calculated length of this object. {(N + 1) * 256} bytes, where N is the number of channels in this object.
+	 * 
+	 * @return	the calculated lenght of this object.
+	 */
+	public int computeLength() {
+		return (channels.size() + 1) * 256;
+	}
+	
+	/**
+	 * Returns the length of this object.
 	 * 
 	 * @return	the lenght of this object.
 	 */
-	public int getLength() {
-		return Integer.parseInt(new String(length).trim());
+	public String getLength() {
+		return new String(length).trim();
 	}
+	
+	/**
+	 * Sets the length header part of the object.
+	 * 
+	 * @param 	length
+	 * 			A String containing the length data of the object.
+	 * 			length is truncating or padding with whitespace so it has the same length as the old length.
+	 */
+	public void setLength(String length) {
+		Arrays.fill(this.length, (byte) ' ');
+		byte[] bytes = length.getBytes();
+		System.arraycopy(bytes, 0, this.length, 0, Math.min(bytes.length, this.length.length));	
+	}	
 	
 	/**
 	 * Returns the reserved header part of this object, which can be used to store aditional information.
@@ -245,7 +368,20 @@ public class BDFHeader {
 	 * @return	the reserved part of this object.
 	 */
 	public String getReserved() {
-		return new String(recording).trim();
+		return new String(reserved).trim();
+	}
+	
+	/**
+	 * Sets the reserved header part of the object, which can be used to store aditional information.
+	 * 
+	 * @param 	reserved
+	 * 			A String containing the reserved data of the object.
+	 * 			reserved is truncating or padding with whitespace so it has the same length as the old reserved.
+	 */
+	public void setReserved(String reserved) {
+		Arrays.fill(this.reserved, (byte) ' ');
+		byte[] bytes = reserved.getBytes();
+		System.arraycopy(bytes, 0, this.reserved, 0, Math.min(bytes.length, this.reserved.length));
 	}
 	
 	/**
@@ -253,8 +389,20 @@ public class BDFHeader {
 	 * 
 	 * @return	the number of records, or -1 if unknown.
 	 */
-	public int getNumRecords() {
-		return Integer.parseInt(new String(numRecords).trim());
+	public String getNumRecords() {
+		return new String(numRecords).trim();
+	}
+
+	/**
+	 * Sets the number of records header part of the object.
+	 * 
+	 * @param 	numRecords
+	 * 			A String containing the number of records of the object.
+	 */
+	public void setNumRecords(String numRecords) {
+		Arrays.fill(this.numRecords, (byte) ' ');
+		byte[] bytes = numRecords.getBytes();
+		System.arraycopy(bytes, 0, this.numRecords, 0, Math.min(bytes.length, this.numRecords.length));
 	}
 	
 	/**
@@ -262,8 +410,29 @@ public class BDFHeader {
 	 * 
 	 * @return	the duration of this object.
 	 */
-	public int getDuration() {
-		return Integer.parseInt(new String(duration).trim());
+	public String getDuration() {
+		return new String(duration).trim();
+	}
+	
+	/**
+	 * Sets the duration header part of the object in seconds.
+	 * 
+	 * @param 	duration
+	 * 			A String containing the duration of the object in seconds.
+	 */
+	public void setDuration(String duration) {
+		Arrays.fill(this.duration, (byte) ' ');
+		byte[] bytes = duration.getBytes();
+		System.arraycopy(bytes, 0, this.duration, 0, Math.min(bytes.length, this.duration.length));
+	}
+	
+	/**
+	 * Returns the calculated number of channels in this object.
+	 * 
+	 * @return	the calculated number of channels.
+	 */
+	public int computeNumChannels() {
+		return channels.size();
 	}
 	
 	/**
@@ -271,8 +440,21 @@ public class BDFHeader {
 	 * 
 	 * @return	the number of channels in this object.
 	 */
-	public int getNumChannels() {
-		return Integer.parseInt(new String(numChannels).trim());
+	public String getNumChannels() {
+		return new String(numChannels).trim();
+	}
+	
+	
+	/**
+	 * Sets the number of channels header part of the object.
+	 * 
+	 * @param 	numChannels
+	 * 			A String containing the number of channels of the object.
+	 */
+	public void setNumChannels(String numChannels) {
+		Arrays.fill(this.numChannels, (byte) ' ');
+		byte[] bytes = numChannels.getBytes();
+		System.arraycopy(bytes, 0, this.numChannels, 0, Math.min(bytes.length, this.numChannels.length));
 	}
 	
 	/**
@@ -290,157 +472,21 @@ public class BDFHeader {
 		return channels.get(index);
 	}
 	
-	public class BDFChannel {
+	/**
+	 * Add a new channel header part to this object.
+	 * 
+	 * @param 	channel
+	 * 			A BDFChannel containing the channel data of the object.
+	 * 			Number of channels and the length will be reset to new values
+	 */
+	public void addChannel(BDFChannel channel) {
+		// add channel to list
+		channels.add(channel);
 		
-		// label
-		private byte[] label= new byte[16];
+		// update number of channels
+		setNumChannels(Integer.toString(computeNumChannels()));
 		
-		// transducer type (e.g. AgAgCl electrode)
-		private byte[] transducerType= new byte[80];
-		
-		// physical dimension (e.g. uV)
-		private byte[] physicalDimension= new byte[8];
-		
-		// physical minimum (e.g. -500 or 34)
-		private byte[] physicalMinimum= new byte[8];
-		
-		// physical maximum (e.g. 500 or 40)
-		private byte[] physicalMaximum= new byte[8];
-		
-		// digital minimum (e.g. -2048)
-		private byte[] digitalMinimum= new byte[8];
-		
-		// digital maximum (e.g. 2047)
-		private byte[] digitalMaximum= new byte[8];
-		
-		// prefiltering (e.g. HP:0.1Hz LP:75Hz)
-		private byte[] prefiltering= new byte[80];
-		
-		// nr of samples in each data record
-		private byte[] numSamples= new byte[8];
-		
-		// reserved
-		private byte[] reserved = new byte[32];
-		
-		public BDFChannel() {
-			
-		}
-		
-		/**
-		 * Returns the label information of this channel.
-		 * e.g.: Oz, Pz.
-		 * 
-		 * @return	the label for this channel
-		 */
-		public String getLabel() {
-			return new String(label).trim();
-		}
-
-		/**
-		 * Returns the transducer type information of this channel.
-		 * e.g.: active electrode.
-		 * 
-		 * @return	the transducer type
-		 */
-		public String getTransducerType() {
-			return new String(transducerType).trim();
-		}
-
-		/**
-		 * Returns the physical dimension of this channel. 
-		 * e.g.: uV, Ohm.
-		 * 
-		 * @return	the physical dimension
-		 */
-		public String getPhysicalDimension() {
-			return new String(physicalDimension).trim();
-		}
-
-		/**
-		 * Returns the physical minimum of this channel.
-		 * e.g.: -262144
-		 * 
-		 * @return 	the physical minimum
-		 */
-		public int getPhysicalMinimum() {
-			return Integer.parseInt(new String(physicalMinimum).trim());
-		}
-
-		/**
-		 * Returns the physical maximum of this channel.
-		 * e.g.: 262143
-		 * 
-		 * @return 	the physical maximum
-		 */
-		public int getPhysicalMaximum() {
-			return Integer.parseInt(new String(physicalMaximum).trim());
-		}
-
-		/**
-		 * Returns the digital minimum of this channel.
-		 * e.g.: -8388608
-		 * 
-		 * @return 	the digital minimum
-		 */
-		public int getDigitalMinimum() {
-			return Integer.parseInt(new String(digitalMinimum).trim());
-		}
-
-		/**
-		 * Returns the digital maximum of this channel.
-		 * e.g.: 8388607
-		 * 
-		 * @return 	the digital maximum
-		 */
-		public int getDigitalMaximum() {
-			return Integer.parseInt(new String(digitalMaximum).trim());
-		}
-
-		/**
-		 * Returns the type of prefiltering used for this channel.
-		 * e.g.: HP: DC; LP: 104 Hz
-		 * 
-		 * @return 	the prefiltering
-		 */
-		public String getPrefiltering() {
-			return new String(prefiltering).trim();
-		}
-
-		/**
-		 * Returns the number of samples in this record. This is also an indication of the sample rate of this channel.
-		 * e.g.: 512.
-		 * 
-		 * @return	the number of samples for this record
-		 */
-		public int getNumSamples() {
-			return Integer.parseInt(new String(numSamples).trim());
-		}
-		
-		/**
-		 * Returns some reserved information.
-		 * 
-		 * @return 	reserved information
-		 */
-		public String getReserved() {
-			return new String(reserved).trim();
-		}
-		
-		@Override
-		public String toString() {
-			StringBuffer buffer = new StringBuffer();
-			
-			buffer.append(new String(label));
-			buffer.append(new String(transducerType));
-			buffer.append(new String(physicalDimension));
-			buffer.append(new String(physicalMinimum));
-			buffer.append(new String(physicalMaximum));
-			buffer.append(new String(digitalMinimum));
-			buffer.append(new String(digitalMaximum));
-			buffer.append(new String(prefiltering));
-			buffer.append(new String(numSamples));
-			buffer.append(new String(reserved));
-			
-			return buffer.toString();
-		}
+		// update length of the header
+		setLength(Integer.toString(computeLength()));
 	}
 }

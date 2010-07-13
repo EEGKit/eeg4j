@@ -13,7 +13,7 @@ import java.util.List;
 import java.util.concurrent.CopyOnWriteArrayList;
 
 /**
- * BDFBroadcast connects to a BDF Server and broadcasts the incomming data to all connected clients.
+ * BDFBroadcast connects to a BDF Server and broadcasts the incoming data to all connected clients.
  * 
  * @author Gido Hakvoort (gido@hakvoort.it)
  *
@@ -34,10 +34,10 @@ public class BDFBroadcast {
 	
 	public BDFBroadcast(String HOST, int SERVER_PORT, int numChannels, int BROADCAST_PORT) {
 
-		// create a client for receiving incomming data
+		// create a client for receiving incoming data
 		BDFBroadcastClient client = new BDFBroadcastClient(HOST, SERVER_PORT, numChannels);
 		
-		// create a server for handling new incomming connections
+		// create a server for handling new incoming connections
 		BDFBroadcastServer server = new BDFBroadcastServer(BROADCAST_PORT);
 		
 		clientThread = new Thread(client);
@@ -58,7 +58,7 @@ public class BDFBroadcast {
 	}
 	
 	/**
-	 * BDFBroadcastClient connects to a BDF Server and sends the incomming data to all connected clients.
+	 * BDFBroadcastClient connects to a BDF Server and sends the incoming data to all connected clients.
 	 *
 	 */
 	private class BDFBroadcastClient implements Runnable {
@@ -115,7 +115,7 @@ public class BDFBroadcast {
 	}
 	
 	/**
-	 * BDFBroadcastServer listens for incomming connections and handles them proparly.
+	 * BDFBroadcastServer listens for incoming connections and handles them properly.
 	 */
 	private class BDFBroadcastServer implements Runnable {
 		
@@ -178,7 +178,7 @@ public class BDFBroadcast {
 	
 	/**
 	 * BDFBroadcastClientHandler handles unique client connections. The handler receives byte arrays of data from the BDFBroadcastClient and
-	 * sending them over the network, mimicing Biosemi's ActiView network connection.
+	 * sending them over the network, mimicking Biosemi's ActiView network connection.
 	 */
 	public class BDFBroadcastClientHandler implements Runnable {
 		
