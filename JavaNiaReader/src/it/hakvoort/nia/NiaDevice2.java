@@ -29,7 +29,7 @@ public class NiaDevice2 {
 	public static final byte ENDPOINT_IN = (byte) 0x81;
 	public static final byte ENDPOINT_OUT = (byte) 0x01;
 	
-	// the size of Nia's internal buffer (this is the maximum number of sample Nia gets behind)
+	// the size of Nia's internal buffer (this is the maximum number of sample NIA gets behind)
 	public static final int INTERNAL_BUFFER_SIZE = 32;
 	
 	// internal sample rate of Nia in Hz
@@ -38,7 +38,7 @@ public class NiaDevice2 {
 	// the value to give missing sample
 	public static final int MISSING_SAMPLE_VALUE = Integer.MIN_VALUE;
 	
-	// prefered sample rate of the NiaDevice.
+	// preferred sample rate of the NiaDevice.
 	// every SAMPLE_RATE/sampleRate clock cycles a new sample is read and send to all listeners
 	private int sampleRate = 512;
 	
@@ -54,9 +54,6 @@ public class NiaDevice2 {
 	// the dataReader, notifying the listeners about new data
 	private NiaDataReader dataReader = new NiaDataReader();
 	
-	// if incoming data should be written to a file
-	private boolean logging = false;
-	
 	// if the device is connected
 	private boolean connected = false;
 	
@@ -66,7 +63,7 @@ public class NiaDevice2 {
 	// the number of connection attempts
 	private int attempt = 0;
 	
-	// a queue with contains all incomming (and missing) samples
+	// a queue with contains all incoming (and missing) samples
 	private ConcurrentLinkedQueue<NiaSample> samples = new ConcurrentLinkedQueue<NiaSample>();
 	
 	public NiaDevice2() {
@@ -93,7 +90,7 @@ public class NiaDevice2 {
 			
 			try {
 				usbInterface.claim(new UsbInterfacePolicy() {
-					@Override
+					
 					public boolean forceClaim(UsbInterface arg0) {
 						return true;
 					}
@@ -147,14 +144,6 @@ public class NiaDevice2 {
 		this.signed = signed;
 	}
 	
-	public boolean getLogging() {
-		return logging;
-	}
-	
-	public void setLogging(boolean logging) {
-		this.logging = logging;
-	}
-	
 	public void addListener(NiaListener listener) {
 		listeners.add(listener);
 	}
@@ -186,13 +175,19 @@ public class NiaDevice2 {
 	 */
 	private class NiaDeviceReader extends Thread {
 		
+		// the buffer for incoming data
 		private byte buffer[] = new byte[55];
+		
+		// the offset of the incomming samples 
 		private int offset = 0;
 		
+		// the sample counter
 		private int counter = 0;
 		
+		// the mis counter, keep track of how many samples the reader is behind
 		private int pMiscount = 0;
 		
+		// the hit counter, keep track of how many samples are read by the device
 		private int pHitcount = 0;
 				
 		public NiaDeviceReader() {
@@ -241,6 +236,7 @@ public class NiaDevice2 {
 					// store last hitcount
 					pHitcount = hitcount;
 					
+					// wait until synchronized with the NIA
 					if(nSamples < 16 && dMiscount == 0) {
 						insync = true;
 					}
@@ -263,6 +259,7 @@ public class NiaDevice2 {
 						int number = ((counter - offset) - nSamples) + i;
 					
 						try {
+							// add missing sample value to the data buffer
 							samples.add(new NiaSample(number, NiaDevice2.MISSING_SAMPLE_VALUE));
 							
 							synchronized(samples) {
@@ -276,7 +273,7 @@ public class NiaDevice2 {
 					// update offset, don't fall to far behind
 					offset %= INTERNAL_BUFFER_SIZE;
 					
-					// fetch the samples. each sample is divided over 3 bytes, litle endian
+					// fetch the samples, each sample is divided over 3 bytes, little endian
 					for(int i=0; i < nSamples; i++) {
 						
 						// get sample number
@@ -322,7 +319,9 @@ public class NiaDevice2 {
 	 */
 	private class NiaDataReader extends Thread {
 
+		// number of samples we should wait for sending next sample
 		private double interval = 0;
+		
 		private double nextInterval = 0;
 		
 		public void run() {
