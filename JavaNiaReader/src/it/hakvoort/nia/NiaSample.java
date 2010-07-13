@@ -16,7 +16,6 @@ public class NiaSample {
 	public NiaSample(int number, int value) {
 		this.number = number;
 		this.value = value;
-		
 	}
 	
 	public String toString() {
