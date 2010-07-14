@@ -37,20 +37,16 @@ public class MarkerClient implements Runnable {
 		this.PORT = PORT;
 	}
 	
-	public void connect() {
-		try {
-			socket = new Socket();
-			socket.connect(new InetSocketAddress(HOST, PORT), 5000);
-			
-			in 	= socket.getInputStream();
-			out = socket.getOutputStream();
+	public void connect() throws IOException {
+		socket = new Socket();
+		socket.connect(new InetSocketAddress(HOST, PORT), 5000);
+		
+		in 	= socket.getInputStream();
+		out = socket.getOutputStream();
 
-			connected = true;
-		} catch (UnknownHostException e) {
-			System.err.println(String.format("Unknown Host: %s", HOST));
-		} catch (IOException e) {
-			System.err.println(String.format("Could not connect to %s:%s", HOST, PORT));
-		}		
+		connected = true;
+		
+		new Thread(this).start();
 	}
 	
 	public void disconnect() {
