@@ -1,11 +1,10 @@
 package it.hakvoort.eeg.marker;
 
+import java.io.DataOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
-import java.io.OutputStream;
 import java.net.InetSocketAddress;
 import java.net.Socket;
-import java.net.UnknownHostException;
 
 /**
  * 
@@ -21,7 +20,7 @@ public class MarkerClient implements Runnable {
 	private InputStream in;
 	
 	// the output stream to send the marker to
-	private OutputStream out;
+	private DataOutputStream out;
 	
 	// the hostname or ip address of the server
 	private String HOST;
@@ -42,7 +41,7 @@ public class MarkerClient implements Runnable {
 		socket.connect(new InetSocketAddress(HOST, PORT), 5000);
 		
 		in 	= socket.getInputStream();
-		out = socket.getOutputStream();
+		out = new DataOutputStream(socket.getOutputStream());
 
 		connected = true;
 		
@@ -69,9 +68,9 @@ public class MarkerClient implements Runnable {
 		return this.connected;
 	}
 
-	public void sendMarker(byte marker) {
+	public void sendMarker(short marker) {
 		try {
-			out.write(marker);
+			out.writeShort(marker);
 		} catch (IOException e) {
 			connected = false;
 		}

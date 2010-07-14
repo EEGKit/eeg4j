@@ -8,6 +8,6 @@ package it.hakvoort.eeg.marker;
  */
 public interface MarkerListener {
 
-	void receivedMarker(byte marker);
+	void receivedMarker(short marker);
 	
 }

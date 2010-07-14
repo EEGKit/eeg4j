@@ -1,7 +1,7 @@
 package it.hakvoort.eeg.marker;
 
+import java.io.DataInputStream;
 import java.io.IOException;
-import java.io.InputStream;
 import java.net.InetSocketAddress;
 import java.net.ServerSocket;
 import java.net.Socket;
@@ -80,7 +80,7 @@ public class MarkerServer implements Runnable {
 	/**
 	 * Send the incomming marker to all listeners
 	 */
-	protected void fireReceivedMarker(byte marker) {
+	protected void fireReceivedMarker(short marker) {
 		for(MarkerListener listener : listeners) {
 			listener.receivedMarker(marker);
 		}
@@ -113,22 +113,22 @@ public class MarkerServer implements Runnable {
 	public class MarkerClientHandler implements Runnable {
 		
 		// the input stream to receive markers
-		private InputStream in;
+		private DataInputStream in;
 		
 		// if the handler is connected
 		private boolean connected = true; 
 		
 		public MarkerClientHandler(Socket socket) throws IOException {
-			in = socket.getInputStream();
+			in = new DataInputStream(socket.getInputStream());
 		}
 		
 		@Override
 		public void run() {
-			byte[] marker = new byte[1];
+			short marker;
 			
 			try {
-				while(connected && in.read(marker) != -1) {
-					fireReceivedMarker(marker[0]);
+				while(connected && (marker = in.readShort()) != -1) {
+					fireReceivedMarker(marker);
 				}
 			} catch (IOException e) {
 				connected = false;
