@@ -40,9 +40,6 @@ public class BDFReader {
 	
 	// the dataReader, notifying the listeners about new data
 	private BDFDataReader dataReader = new BDFDataReader();
-		
-	// if the file is opened
-//	private boolean open = false;
 
 	// if the file and data readers are running
 	private boolean running = false;
@@ -207,7 +204,7 @@ public class BDFReader {
 						inputStream.read(data);
 						record[i] = parseChannel(data);
 					}
-					
+
 					// create BDFSamples which contain the sample value for each channel.
 					// for the previous example this will eventually results in 6 samples, each with 2 values.
 					// 
