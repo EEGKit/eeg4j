@@ -160,10 +160,7 @@ public class BDFWriter {
 		private void writeRecord() throws IOException {
 			for(int c = 0; c < numChannels; c++) {
 				for(int v = 0; v < sampleRate; v++) {
-					
-					byte[] bytes = parseValue(record[c][v]);
-					
-					outputStream.write(bytes);
+					outputStream.write(parseValue(record[c][v]));
 				}
 			}
 		}
