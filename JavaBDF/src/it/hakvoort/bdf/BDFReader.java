@@ -100,10 +100,11 @@ public class BDFReader {
 	 * Start the BDFReader, start the read and data threads.
 	 */
 	public void start() {
-		fileReader.start();
-		dataReader.start();
-		
 		running = true;
+
+		dataReader.start();
+		fileReader.start();
+
 	}
 	
 	/*
