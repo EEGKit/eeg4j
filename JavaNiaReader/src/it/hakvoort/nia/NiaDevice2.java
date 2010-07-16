@@ -35,9 +35,6 @@ public class NiaDevice2 {
 	// internal sample rate of Nia in Hz
 	public static final int SAMPLE_RATE = 3906;
 	
-	// the value to give missing sample
-	public static final int MISSING_SAMPLE_VALUE = Integer.MIN_VALUE;
-	
 	// preferred sample rate of the NiaDevice.
 	// every SAMPLE_RATE/sampleRate clock cycles a new sample is read and send to all listeners
 	private int sampleRate = 512;
@@ -99,7 +96,7 @@ public class NiaDevice2 {
 				connected = true;
 				continue;
 			} catch (UsbException e) {
-				e.printStackTrace();
+				
 			}
 
 			try {
@@ -189,7 +186,7 @@ public class NiaDevice2 {
 		
 		// the hit counter, keep track of how many samples are read by the device
 		private int pHitcount = 0;
-				
+	
 		public NiaDeviceReader() {
 
 		}
@@ -258,16 +255,16 @@ public class NiaDevice2 {
 						// get sample number
 						int number = ((counter - offset) - nSamples) + i;
 					
-						try {
-							// add missing sample value to the data buffer
-							samples.add(new NiaSample(number, NiaDevice2.MISSING_SAMPLE_VALUE));
-							
-							synchronized(samples) {
+						// add missing sample value to the data buffer
+						synchronized(samples) {
+							NiaSample sample = new NiaSample(number, 0);
+							sample.reportMissing();
+							samples.add(sample);
+								
+							try {
 								samples.notifyAll();
-							}
-						} catch(IllegalStateException e) {
-							
-						}	
+							} catch(IllegalStateException e) {}							
+						}
 					}
 					
 					// update offset, don't fall to far behind
@@ -288,19 +285,17 @@ public class NiaDevice2 {
 							value = ~(value ^ 0x7fffff) + 0x800000;
 						}
 						
-						try {
+						synchronized(samples) {
 							samples.add(new NiaSample(number, value));
-	
-							synchronized(samples) {
-								samples.notifyAll();
-							}
-						} catch(IllegalStateException e) {
 							
+							try {	
+								samples.notifyAll();
+							} catch(IllegalStateException e) {}
 						}
 					}
 				} catch(UsbException e) {
 					e.printStackTrace();
-				}
+				}				
 			}
 			
 			try {
@@ -311,7 +306,7 @@ public class NiaDevice2 {
 			}
 	
 			System.out.println(String.format("NiaDeviceReader: No longer connected, stopped reading data from the device."));
-		}
+		}		
 	}
 	
 	/**
@@ -342,7 +337,7 @@ public class NiaDevice2 {
 						NiaSample sample = samples.poll();
 						
 						if(sample.number >= nextInterval) {
-							fireReceivedSample(sample);
+							fireReceivedSample(sample);							
 							nextInterval += interval;
 						}
 					}
