@@ -105,9 +105,7 @@ public class MarkerServer implements Runnable {
 				handlerThread.start();
 			}
 			
-		} catch(IOException e) {
-			e.printStackTrace();
-		}
+		} catch(IOException e) {}
 	}
 	
 	public class MarkerClientHandler implements Runnable {

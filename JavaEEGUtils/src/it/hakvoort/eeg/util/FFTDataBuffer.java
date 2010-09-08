@@ -17,9 +17,9 @@ public class FFTDataBuffer {
 	// the resolution of the incomming samples
 	private double resolution;
 	
-	// min and max frequency
-	protected int min;
-	protected int max;
+	// the highpass and lowpass
+	protected int highpass;
+	protected int lowpass;
 	
 	// WindowedDataBuffer contains incomming samples and handles windowing
 	private WindowedDataBuffer.Float buffer;
@@ -34,7 +34,7 @@ public class FFTDataBuffer {
 	private double[] bins;
 	
 	// average magnitude of frequencies in bins
-	private double magnitude = 0d;
+	private double averageMagnitude = 0d;
 	
 	public FFTDataBuffer(int size, int rate) {
 		this.size = size;
@@ -42,8 +42,8 @@ public class FFTDataBuffer {
 		
 		this.resolution = ((double) rate) / ((double) size);
 		
-		this.min = 0;
-		this.max = rate/2;
+		this.highpass 	= 0;
+		this.lowpass 	= rate/2;
 		
 		buffer = new WindowedDataBuffer.Float(size);
 		fft = new FloatFFT_1D(size);
@@ -52,12 +52,12 @@ public class FFTDataBuffer {
 		bins = new double[getBinCount()];
 	}
 	
-	public void setScale(float scale) {
-		buffer.setScale(scale);
+	public void setGain(int gain) {
+		buffer.setGain(gain);
 	}
 	
-	public float getScale() {
-		return buffer.getScale();
+	public int getGain() {
+		return buffer.getGain();
 	}
 	
 	public void setWindow(Window window) {
@@ -69,24 +69,24 @@ public class FFTDataBuffer {
 	}
 	
 	public void setFrequencyRange(int min, int max) {
-		this.setMinFrequency(min);
-		this.setMaxFrequency(max);
+		this.setHighpass(min);
+		this.setLowpass(max);
 	}
 	
-	public void setMinFrequency(int min) {
-		this.min = Math.max(min, 0);
+	public void setHighpass(int highpass) {
+		this.highpass = Math.max(highpass, 0);
 	}
 	
-	public void setMaxFrequency(int max) {
-		this.max = Math.min(max, this.rate / 2);
+	public void setLowpass(int lowpass) {
+		this.lowpass = Math.min(lowpass, this.rate / 2);
 	}
 	
-	public int getMinFrequency() {
-		return this.min;
+	public int getHighpass() {
+		return this.highpass;
 	}
 	
-	public int getMaxFrequency() {
-		return this.max;
+	public int getLowpass() {
+		return this.lowpass;
 	}
 	
 	public double getFrequencyResolution() {
@@ -94,7 +94,7 @@ public class FFTDataBuffer {
 	}
 	
 	public int getBinCount() {
-		return (int) ((max - min) / resolution + 1);
+		return (int) ((lowpass - highpass) / resolution + 1);
 	}
 	
 	public double[] getBins() {
@@ -102,19 +102,19 @@ public class FFTDataBuffer {
 	}
 	
 	public double getAverageMagnitude() {
-		return this.magnitude;
+		return this.averageMagnitude;
 	}
 	
 	public double getMagnitude(double frequency) {
-		if (frequency < min || frequency > max) {
+		if (frequency < highpass || frequency > lowpass) {
 			return 0d;
 		}
 
 		if(frequency % resolution != 0) {
 			double offset = frequency % resolution;
 
-			double value1 = bins[(int) (((frequency - offset) - min) / resolution)];
-			double value2 = bins[(int) (((frequency - offset + resolution) - min) / resolution)];
+			double value1 = bins[(int) (((frequency - offset) - highpass) / resolution)];
+			double value2 = bins[(int) (((frequency - offset + resolution) - highpass) / resolution)];
 
 			double scale1 = 1 - offset / resolution;
 			double scale2 = offset / resolution;
@@ -122,7 +122,7 @@ public class FFTDataBuffer {
 			return (scale1 * value1) + (scale2 * value2);
 		}
 
-		return bins[(int) ((frequency - min) / resolution)];
+		return bins[(int) ((frequency - highpass) / resolution)];
 	}
 	
 	public void add(float value) {
@@ -131,7 +131,7 @@ public class FFTDataBuffer {
 	
 	public void applyFFT() {
 		int binCount = getBinCount();
-		double averageMagnitude = 0;
+		double totalMagnitude = 0;
 		
 		bins = new double[binCount];
 		
@@ -141,17 +141,17 @@ public class FFTDataBuffer {
 		// perform fft
 		fft.realForward(target);
 		
-		// get the values between the min and max frequencies
-		for(double f = min, i = 0; f < max; f += resolution, i++) {
+		// get the values between the highpass and lowpass frequencies
+		for(double f = highpass, i = 0; f < lowpass; f += resolution, i++) {
 			int index = (int) ((f / resolution)) * 2;
 			
 			// magnitude of frequency
 			bins[(int) i] = Math.sqrt(target[index]*target[index] + target[index+1]*target[index+1]) / (size / 2);
 
-			averageMagnitude += bins[(int) i];
+			totalMagnitude += bins[(int) i];
 		}
 		
-		// update magnitude
-		magnitude = averageMagnitude / ((double) binCount);
+		// update average magnitude
+		averageMagnitude = totalMagnitude / ((double) binCount);
 	}
 }

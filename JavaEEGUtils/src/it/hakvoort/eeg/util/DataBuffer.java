@@ -9,15 +9,21 @@ public abstract class DataBuffer {
 	
 	protected int capacity;
 	
-	// the scale for incoming data
-	protected float scale = 1.0f;
+	// the gain for incoming data
+	protected int gain = 100;
 	
-	public void setScale(float scale) {
-		this.scale = scale;
+	// the minimum value of the incoming data
+	protected int minimum = 0;
+
+	// the maximum value of the incoming data
+	protected int maximum = 0;
+	
+	public void setGain(int gain) {
+		this.gain = gain;
 	}
 	
-	public float getScale() {
-		return this.scale;
+	public int getGain() {
+		return this.gain;
 	}
 	
 	public DataBuffer(int capacity) {
@@ -36,7 +42,9 @@ public abstract class DataBuffer {
 		}
 				
 		public synchronized void add(float value) {
-			data[index] = value * scale;
+//			data[index] = gain > 0 ? value * ((maximum - minimum) / gain) : 0;
+			data[index] = value;
+
 			index = (index+1) % capacity;
 			size = Math.min(size+1, capacity);
 		}
@@ -60,7 +68,9 @@ public abstract class DataBuffer {
 		}
 		
 		public void add(double value) {
-			data[index] = value * scale;
+//			data[index] = gain > 0 ? value * ((maximum - minimum) / gain) : 0;
+			data[index] = value;
+			
 			index = (index+1) % capacity;
 			size = Math.min(size+1, capacity);
 		}

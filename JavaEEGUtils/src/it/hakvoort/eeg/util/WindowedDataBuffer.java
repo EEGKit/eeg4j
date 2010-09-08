@@ -13,7 +13,7 @@ public abstract class WindowedDataBuffer extends DataBuffer {
 	public static class Float extends DataBuffer.Float {
 		
 		public Float(int capacity) {
-			super(capacity);			
+			super(capacity);
 		}
 		
 		public void getData(float[] target, Window window) {
@@ -49,6 +49,10 @@ public abstract class WindowedDataBuffer extends DataBuffer {
 		}
 				
 		public void getData(double[] target, Window window) {
+			if(size <= 0) {
+				return;
+			}
+			
 			for(int i=0; i<capacity; i++) {
 				target[i] = applyWindow(data[((index%size) + i) % capacity], i, window);
 			}

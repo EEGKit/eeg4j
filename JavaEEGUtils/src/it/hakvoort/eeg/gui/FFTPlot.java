@@ -55,12 +55,12 @@ public class FFTPlot extends JFrame {
         setVisible(true);	
 	}
 	
-	public void setScale(float scale) {
-		buffer.setScale(scale);
+	public void setGain(int gain) {
+		buffer.setGain(gain);
 	}
 	
-	public float getScale() {
-		return buffer.getScale();
+	public float getGain() {
+		return buffer.getGain();
 	}
 	
 	public void setYExtrema(int min, int max) {
@@ -88,19 +88,19 @@ public class FFTPlot extends JFrame {
 	}
 	
 	public void setMinFrequency(int min) {
-		buffer.setMinFrequency(min);
+		buffer.setHighpass(min);
 	}
 	
 	public void setMaxFrequency(int max) {
-		buffer.setMaxFrequency(max);
+		buffer.setLowpass(max);
 	}
 	
 	public int getMinFrequency() {
-		return buffer.getMinFrequency();
+		return buffer.getHighpass();
 	}
 	
 	public int getMaxFrequency() {
-		return buffer.getMaxFrequency();
+		return buffer.getLowpass();
 	}
 	
 	public double getFrequencyResolution() {
@@ -155,12 +155,12 @@ public class FFTPlot extends JFrame {
 		
 		@Override
 		public float getXCoord(int x) {
-			return (float) (buffer.getMinFrequency() + ((x) * buffer.getFrequencyResolution()));
+			return (float) (buffer.getHighpass() + ((x) * buffer.getFrequencyResolution()));
 		}
 		
 		@Override
 		public int length() {
-			return (int) ((buffer.getMaxFrequency() - buffer.getMinFrequency()) / buffer.getFrequencyResolution() + 1);
+			return (int) ((buffer.getLowpass() - buffer.getHighpass()) / buffer.getFrequencyResolution() + 1);
 		}
 	}
 }
