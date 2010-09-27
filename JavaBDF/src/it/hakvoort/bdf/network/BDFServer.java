@@ -204,13 +204,17 @@ public class BDFServer implements Runnable {
 		}
 	}
 	
+	public static void printUsage() {
+		System.out.println("Usage: BDFServer [-r] FILE PORT [FREQUENCY]");
+		System.out.println("-r        : repeat the file when the end is reached.");
+		System.out.println("FILE      : the BDF file.");
+		System.out.println("PORT      : port number for connecting clients.");
+		System.out.println("FREQUENCY : the frequency for sending data. 0 for full speed, -1 for file based sample rate (default).");		
+	}
+	
 	public static void main(String[] args) throws IOException, BDFException {
 		if(args.length < 2) {
-			System.out.println("Usage: BDFServer [-r] FILE PORT [FREQUENCY]");
-			System.out.println("-r        : repeat the file when the end is reached.");
-			System.out.println("FILE      : the BDF file.");
-			System.out.println("PORT      : port number for connecting clients.");
-			System.out.println("FREQUENCY : the frequency for sending data. 0 for full speed, -1 for file based sample rate (default).");
+			printUsage();
 			return;
 		}
 		
@@ -221,6 +225,11 @@ public class BDFServer implements Runnable {
 		int PORT		= 0;
 
 		if(args[0].equals("-r")) {
+			if(args.length < 3) {
+				printUsage();
+				return;
+			}
+			
 			pathname 	= args[1];
 			repeat 	= true;
 			
@@ -236,7 +245,7 @@ public class BDFServer implements Runnable {
 				frequency = Integer.parseInt(args[2]);
 			}
 			
-			PORT = Integer.parseInt(args[1]);			
+			PORT = Integer.parseInt(args[1]);
 		}
 		
 		BDFFile bdf = BDFFile.open(pathname);

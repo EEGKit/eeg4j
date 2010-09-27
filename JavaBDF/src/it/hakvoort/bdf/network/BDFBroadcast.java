@@ -147,11 +147,16 @@ public class BDFBroadcast {
 				
 				System.out.println(String.format("BDFBroadcastServer connected and listening for connections on: %s:%s.", HOST, PORT));
 				
+			} catch(SecurityException e) {
+				e.printStackTrace();
+				System.err.println(String.format("Could not bind socket to address %s:%s", HOST, PORT));
+				running = false;
 			} catch(IOException e) {
 				e.printStackTrace();
 				System.err.println(String.format("Could not bind socket to address %s:%s", HOST, PORT));
+				running = false;
 			}
-			
+
 			while(running) {
 				try {
 					Socket socket = serverSocket.accept();
