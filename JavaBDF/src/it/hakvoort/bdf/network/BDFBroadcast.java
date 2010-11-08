@@ -102,8 +102,30 @@ public class BDFBroadcast {
 		public void run() {
 			byte[] buffer = new byte[numChannels * 3];
 
+			int index = 0;
+			
 			try {
-				while(running && input.read(buffer) != -1) {
+				while(running) {
+					// get next byte
+					int b = input.read();
+					
+					// stop if end of stream
+					if(b == -1) {
+						running = false;
+						continue;
+					}
+					
+					// store byte in buffer
+					buffer[index] = (byte) b;
+					
+					// update index
+					index++;
+					
+					// if buffer is not full, continue reading data
+					if(index < buffer.length) {
+						continue;
+					}
+					
 					fireReceivedData(buffer);
 				}
 			} catch(IOException e) {

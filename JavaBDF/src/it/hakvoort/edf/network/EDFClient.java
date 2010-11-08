@@ -1,7 +1,7 @@
-package it.hakvoort.bdf.network;
+package it.hakvoort.edf.network;
 
-import it.hakvoort.bdf.BDFSample;
-import it.hakvoort.bdf.BDFListener;
+import it.hakvoort.edf.EDFListener;
+import it.hakvoort.edf.EDFSample;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -16,7 +16,7 @@ import java.util.concurrent.CopyOnWriteArrayList;
  * @author Gido Hakvoort (gido@hakvoort.it)
  *
  */
-public class BDFClient {
+public class EDFClient {
 	
 	// the client socket
 	private Socket socket;
@@ -34,16 +34,16 @@ public class BDFClient {
 	private boolean connected = false;
 
 	// the input reader
-	private BDFClientInputReader inputReader;
+	private EDFClientInputReader inputReader;
 	
 	// listeners waiting for records
-	protected List<BDFListener> listeners = new CopyOnWriteArrayList<BDFListener>();
+	protected List<EDFListener> listeners = new CopyOnWriteArrayList<EDFListener>();
 	
-	public BDFClient(String HOST, int PORT, int numChannels) {
+	public EDFClient(String HOST, int PORT, int numChannels) {
 		this.HOST = HOST;
 		this.PORT = PORT;
 		
-		inputReader = new BDFClientInputReader(numChannels);
+		inputReader = new EDFClientInputReader(numChannels);
 	}
 	
 	public void connect() {
@@ -83,11 +83,11 @@ public class BDFClient {
 		return this.connected;
 	}
 	
-	public void addListener(BDFListener listener) {
+	public void addListener(EDFListener listener) {
 		listeners.add(listener);
 	}
 	
-	public void removeListener(BDFListener listener) {
+	public void removeListener(EDFListener listener) {
 		listeners.remove(listener);
 	}
 	
@@ -95,35 +95,35 @@ public class BDFClient {
 		listeners.clear();
 	}
 	
-	public List<BDFListener> getListeners() {
+	public List<EDFListener> getListeners() {
 		return listeners;
 	}
 	
 	/**
 	 * Send a sample to all listeners
 	 */
-	protected void fireReceivedRecord(BDFSample sample) {
-		for(BDFListener listener : listeners) {
+	protected void fireReceivedRecord(EDFSample sample) {
+		for(EDFListener listener : listeners) {
 			listener.receivedSample(sample);
 		}
 	}
 	
 	/**
-	 * BDFClientInputReader reads data from the input stream. 
-	 * The data is converted into a BDFSample and send to all listeners
+	 * EDFClientInputReader reads data from the input stream. 
+	 * The data is converted into a EDFSample and send to all listeners
 	 */
-	private class BDFClientInputReader implements Runnable {
+	private class EDFClientInputReader implements Runnable {
 		
 		// the number of channels in the stream
 		private int numChannels;
 		private int recordCounter = 0;
 		
-		public BDFClientInputReader(int numChannels) {
+		public EDFClientInputReader(int numChannels) {
 			this.numChannels = numChannels;
 		}
 		
 		public void run() {
-			byte[] buffer = new byte[numChannels * 3];
+			byte[] buffer = new byte[numChannels * 2];
 			int[] samples = new int[numChannels];
 			
 			int index = 0;
@@ -152,16 +152,17 @@ public class BDFClient {
 								
 					// process data and send record
 					for(int i=0; i<numChannels; i++) {
-						int value = (buffer[i*3] & 0xFF) | ((buffer[i*3+1] & 0xFF) << 8) | ((buffer[i*3+2] & 0xFF) << 16);
+						int value = (buffer[i*2] & 0xFF) | ((buffer[i*2+1] & 0xFF) << 8);
 					
-						if((value & 0x800000) != 0) {
-							value = ~(value ^ 0x7fffff) + 0x800000;
+						// TODO: is it signed?
+						if((value & 0x8000) != 0) {
+							value = ~(value ^ 0x7fff) + 0x8000;
 						}
 					
 						samples[i] = value;
 					}
 					
-					fireReceivedRecord(new BDFSample(recordCounter, samples));
+					fireReceivedRecord(new EDFSample(recordCounter, samples));
 					recordCounter++;						
 					
 					// reset index
@@ -172,16 +173,16 @@ public class BDFClient {
 			}
 			
 			connected = false;
-			System.err.println("BDFClient disconnected.");
+			System.err.println("EDFClient disconnected.");
 		}
 	}
 
 	public static void main(String[] args) {
 		if(args.length < 3) {
-			System.out.println("Usage: BDFClient HOSTNAME PORT CHANNELS");
-			System.out.println("HOSTNAME : hostname of the BDF server.");
-			System.out.println("PORT     : port number of the BDF server.");
-			System.out.println("CHANNELS : the number of channels in the BDF data stream.");
+			System.out.println("Usage: EDFClient HOSTNAME PORT CHANNELS");
+			System.out.println("HOSTNAME : hostname of the EDF server.");
+			System.out.println("PORT     : port number of the EDF server.");
+			System.out.println("CHANNELS : the number of channels in the EDF data stream.");
 			
 			return;
 		}
@@ -190,11 +191,11 @@ public class BDFClient {
 		int PORT 		= Integer.parseInt(args[1]);
 		int CHANNELS 	= Integer.parseInt(args[2]);
 		
-		BDFClient client = new BDFClient(HOST, PORT, CHANNELS);
-		client.addListener(new BDFListener() {
+		EDFClient client = new EDFClient(HOST, PORT, CHANNELS);
+		client.addListener(new EDFListener() {
 			
 			@Override
-			public void receivedSample(BDFSample sample) {
+			public void receivedSample(EDFSample sample) {
 				System.out.println(sample.toString());
 			}
 		});
