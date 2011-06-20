@@ -130,26 +130,13 @@ public class BDFClient {
 			
 			try {
 				while(connected) {
-					// get next byte
-					int b = input.read();
+					int toRead = buffer.length;
 					
-					// stop if end of stream
-					if(b == -1) {
-						connected = false;
-						continue;
+					// wait until buffer is full
+					while(toRead > 0)  {
+						toRead -= input.read(buffer, buffer.length - toRead, toRead);
 					}
-					
-					// store byte in buffer
-					buffer[index] = (byte) b;
-					
-					// update index
-					index++;
-					
-					// if buffer is not full, continue reading data
-					if(index < buffer.length) {
-						continue;
-					}
-								
+													
 					// process data and send record
 					for(int i=0; i<numChannels; i++) {
 						int value = (buffer[i*3] & 0xFF) | ((buffer[i*3+1] & 0xFF) << 8) | ((buffer[i*3+2] & 0xFF) << 16);
@@ -168,7 +155,7 @@ public class BDFClient {
 					index = 0;
 				}
 			} catch(IOException e) {
-				
+				e.printStackTrace();
 			}
 			
 			connected = false;
