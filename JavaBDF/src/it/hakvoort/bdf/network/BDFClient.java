@@ -151,6 +151,9 @@ public class BDFClient {
 					fireReceivedRecord(new BDFSample(recordCounter, samples));
 					recordCounter++;						
 					
+					// reset samples
+					samples = new int[numChannels];
+					
 					// reset index
 					index = 0;
 				}
