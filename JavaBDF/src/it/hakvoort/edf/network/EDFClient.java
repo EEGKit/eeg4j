@@ -165,6 +165,9 @@ public class EDFClient {
 					fireReceivedRecord(new EDFSample(recordCounter, samples));
 					recordCounter++;						
 					
+					// reset samples
+					samples = new int[numChannels];
+					
 					// reset index
 					index = 0;
 				}
