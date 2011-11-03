@@ -153,7 +153,10 @@ public class EpocClient {
 					
 					// create and fire new sample
 					fireReceivedRecord(new EpocSample(recordCounter, samples));
-					recordCounter++;						
+					recordCounter++;
+					
+					// reset samples
+					samples = new double[numChannels];
 				}
 			} catch(IOException e) {
 				
