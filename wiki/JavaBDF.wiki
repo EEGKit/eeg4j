@@ -1,0 +1,127 @@
+#summary How to work with JavaBDF
+
+==Introduction==
+
+JavaBDF provides functionality to read and write [http://www.biosemi.com/faq/file_format.htm Biosemi's BDF] files, distribute BDF records and send or receive BDF records over a TCP connection. Follow [http://eeg4j.googlecode.com/files/JavaBDF.0.3.library.jar this] link to download the library or [http://eeg4j.googlecode.com/files/JavaBDF.0.3.zip this] link for the source and execution files.
+
+
+==Reader==
+
+The BDFReader reads data from a BDF file. This data is parsed into samples which are placed in a Queue. Samples in the Queue are send to all BDFListeners which registered themselves as listener on the BDFReader.
+
+To obtain a BDFReader a BDFFile is required. The BDFFile will open the file and read the BDF header. The header is stored and can be retrieved.
+
+{{{
+// open a BDFFile
+BDFFile bdf = BDFFile.open("data/dbf/example.bdf");
+
+// get the BDFReader
+BDFReader reader = bdf.getReader();
+
+// start the BDFReader 
+reader.start();	
+
+...
+
+// stop the BDFReader
+reader.stop();
+}}}
+
+If you want to receive new samples from the BDFReader, implement the BDFListener and register as a listener on the BDFReader.
+
+{{{
+// register this class as listener
+reader.addListener(this);
+}}}
+
+{{{
+public void receivedRecord(BDFDataRecord record) {
+    System.out.println(record.toString());
+}
+}}}
+
+The BDFReader has serveral options which can be changed.
+
+*Repeat*
+
+It is possible to play the file from the beginning when the end is reached. This can be done by setting repeat to true.
+{{{
+// start at the beginning of the file when reaching the end
+reader.setRepeat(true);
+}}}
+
+*Sample rate*
+
+By default the BDFReader send samples at the same frequency as the sample rate of the file. This can be changed be setting the frequency to a different value. Setting the frequency to 0 will set the BDFReader to send samples at full speed.
+
+{{{
+// set the frequency to 2Hz
+reader.setFrequency(2);
+}}}
+
+*Buffer size*
+
+The BDFReader stores a couple of seconds of data in a buffer. When the buffer reaches a given maximum it will wait until a given minimum is reached. These minimum and maximum can be adjusted.
+{{{
+// set the maximum number of seconds for the buffer
+reader.setThresholdMax(8);
+
+// set the minimum number of seconds for the buffer
+reader.setThresholdMin(4);
+}}}
+
+==Networking==
+
+JavaBDF contains a server, client and broadcast implementation to work with BDF records.
+
+*BDFServer*
+
+The BDFServer simulates ActiView's TCP/IP communication with an earlier recorded BDF file. It handles incoming connections and sends BDF records from the file to all connected clients. For reading data from a BDF file it uses a BDFFile.
+
+{{{
+// get the BDFFile
+BDFFile bdf = BDFFile.open("data/bdf/example.bdf");
+		
+// create and start a BDFServer
+BDFServer server = new BDFServer(bdf, 4321);
+server.start();
+}}}
+
+*BDFClient*
+
+The BDFClient can connect with any application providing BDF records over a TCP connection: JavaBDF's BSFServer, ActiView or [http://www.borisreuderink.nl/braindrain.html BrainDrain]. Just provide a hostname, port and the number of channels. The number of channels which are send by the server and read by the client must be the same! If not, data will be incorrect.
+
+{{{
+// create a BDFClient
+BDFClient client = new BDFClient("localhost", 4321, 33);
+
+// connect the client
+client.connect();
+
+...
+
+// disconnect the client
+client.disconnect();
+}}}
+
+If you want to receive new incoming records from the BDFNetworkClient, implement the BDFListener and register as a listener on the BDFNetworkClient.
+
+{{{
+// register this class as listener
+client.addListener(this);
+}}}
+
+{{{
+public void receivedRecord(BDFDataRecord record) {
+    System.out.println(record.toString());
+}
+}}}
+
+*BDFBroadcast*
+
+BDFBroadcast can connect with any application providing BDF records over a TCP connection just like the BDFClient and at the same time handle incoming connections to broadcast the incoming data.
+
+Just start the BDFBroadcast with a hostname, server port, number of channels and broadcast port.
+{{{
+BDFBroadcast localhost 4321 33 4322
+}}}

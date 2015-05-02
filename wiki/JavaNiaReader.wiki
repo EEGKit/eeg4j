@@ -1,0 +1,51 @@
+#summary How to work with JavaNiaReader
+#labels Phase-Implementation
+
+==Introduction==
+
+!JavaNiaReader provides functionality to retrieve and distribute raw data from OCZ's Neural Impulse Actuator (Nia). The NiaDevice implementation continuously read data from the Nia. This data is parsed into samples which are placed in a Queue. Samples in the Queue are send to all NiaListeners which registered themselves as listener on the NiaDevice.
+
+
+==Details==
+
+!JavaNieReader uses [http://libusbjava.sourceforge.net/wp/ Java libusb / libusb-win32 wrapper], which is a Java wrapper for the libusb (0.1) and libusb-win32 USB library.
+
+After this is correctly installed, you can create a connection with Nia in the following way.
+
+{{{
+// create a NiaDevice
+NiaDevice nia = new NiaDevice();
+
+// start the NiaDevice 
+nia.start();		
+
+...
+
+// stop the NiaDevice
+nia.stop();
+}}}
+
+If you want to receive new samples from the Nia, implement the NiaListener and register as a listener on the NiaDevice.
+
+{{{
+// register this class as listener
+nia.addListener(this);
+}}}
+
+{{{
+public void receivedSample(NiaSample sample) {
+    System.out.println(sample.toString());
+}
+}}}
+
+==Signed / Unsigned==
+
+OZC's Neural Impulse Actuator is a standard HID USB device, which should mean that it follows the HID standards. The header of the Nia specifies that there are 16 samples of 24 bits in each block of data read from the Nia, and that each sample has a value between -8388608 and 8388607 (see the usb-hid.html file in the downloads section). According to the HID standard this means that all samples are signed and in Two's complement.
+
+This is also standard in the NiaDevice. But as it turns out when reviewing the data, it does not look like a valid EEG signal. It keeps switching between high and low values.
+It is possible to turn this option of, which results in a much more valid looking signal.
+
+{{{
+// set signed to false
+nia.setSigned(false);
+}}}

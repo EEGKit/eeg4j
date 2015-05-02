@@ -1,0 +1,9 @@
+How to use !JavaNiaLink
+
+==Introduction==
+
+!JavaNiaLink combines the two previous projects and creates a link between OCZ's Neural Impulse Actuator (nia) and NeuroServer so the raw nia signal can be analysed in other applications.
+
+==Details==
+
+lorem ipsum

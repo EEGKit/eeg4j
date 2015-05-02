@@ -1,0 +1,47 @@
+#summary How to send raw commands with JavaNeuroClient to NeuroSever
+#labels Phase-Implementation
+
+==Introduction==
+
+!JavaNeuroClient provides a basic way to communicate with NeuroServer. It is possible to send raw commands over TCP/IP to NeuroServer and receive responses by implementing the NeuroServerInputListener.
+
+==Details==
+
+To send raw commands to NeuroServer first you need to create a NeuroServerConnection, connect to NeuroServer and send commands.
+{{{
+// create a new NeuroServerConnection
+NeuroServerConnection connection = new NeuroServerConnection("localhost", 8336);
+
+// connect to NeuroServer
+connection.connect();
+
+// send hello command
+connection.sendCommand(Command.HELLO);
+
+// disconnect from NeuroServer
+connection.disconnect();
+}}}
+
+You should check if there is a connection with NeuroServer before sending a command.
+{{{
+// check if connection is connected
+if(connection.isConnected()) {
+    // send hello command
+    connection.sendCommand(Command.HELLO);			
+}
+}}}
+
+By implementing the NeuroServerInputListener and register as listener, you will receive updates when NeuroClient received input from NeuroServer.
+{{{
+// register as listener
+connection.addListener(this);
+}}}
+
+{{{
+public void receivedLine(String line) {
+    // output incoming lines from NeuroServer
+    System.out.println(line);
+}
+}}}
+
+!JavaNeuroClient also contains implementations of the three different NeuroServer roles. For this, see the wiki on DisplayAgent, [EEGAgent] or ControlAgent. 

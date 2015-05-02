@@ -1,0 +1,122 @@
+#summary How to use the EEG utils
+
+==Introduction==
+
+JavaEEGUtils provides some basic functionality to work with EEG; Apply window functions on data series, Computing discrete Fourier transforms using [http://sites.google.com/site/piotrwendykier/software/jtransforms jTransforms] and displaying FFT and raw signals using [http://jsci.sourceforge.net/ JSci].
+
+==Plots==
+
+*RawSignalPlot*
+
+<table width="50%">
+<tr valign="top" align="center"><td>
+<img src="http://eeg4j.googlecode.com/svn/wiki/images/rawsignal-1.png" width="420px" />
+</td><td>
+<img src="http://eeg4j.googlecode.com/svn/wiki/images/rawsignal-2.png" width="420px" />
+</td></tr>
+<tr valign="top" align="center"><td>The RawSignalPlot can be used to show incoming data. When the maximum capacity is reached the plot start again at the beginning. The blue line indicates the position of the last sample.
+</td><td>It is possible to tail incoming data, in this case incoming data is draw at the end of the graph, sliding the graph when its maximum capacity is reached.
+</td></tr>
+</table>
+
+*FFTPlot*
+
+<table width="50%">
+<tr valign="top" align="center"><td>
+<img src="http://eeg4j.googlecode.com/svn/wiki/images/fft-spectrum-1.png" width="420px" />
+</td><td>
+<img src="http://eeg4j.googlecode.com/svn/wiki/images/fft-spectrum-2.png" width="420px" />
+</td></tr>
+<tr valign="top" align="center"><td>The FFTPlot can be used to show the computed FFT of incoming data.</td><td>
+You can set the minimum and maximum frequencies of the FFT, which results in fewer bins.
+</td></tr>
+</table>
+
+==Data==
+
+*DataBuffer*
+
+The DataBuffer is actually nothing more than a buffer to store incoming data. The DataBuffer has a maximum capacity and when it is reached, old data is replaced by the new incomming data (first in first out).
+
+{{{
+// create the DataBuffer
+DataBuffer.Float buffer = new DataBuffer.Float(256);
+
+...
+
+// add some data to the buffer
+buffer.add(data);
+}}}
+
+When you want to retrieve the data from the DataBuffer you have to provide a target array in which the data will be placed.
+
+{{{
+// create the target array in which data will be placed
+float[] target = new float[size];
+
+// get the data from the DataBuffer
+buffer.getData(target);
+}}}
+
+*WindowedDataBuffer*
+
+The WindowedDataBuffer is an extension of the DataBuffer and can be used to apply one of five different [http://en.wikipedia.org/wiki/Window_function window function]; Rectangle, Hann, Hamming, Blackman and Blackman Harris.
+
+{{{
+// create the WindowedDataBuffer
+WindowedDataBuffer.Float buffer = new WindowedDataBuffer.Float(256);
+
+...
+
+// add some data to the buffer
+buffer.add(data);
+}}}
+
+When you want to retrieve the data from the WindowedDataBuffer you have to provide a target array and the type of window function to use.
+
+{{{
+// create the target array in which data will be placed
+float[] target = new float[size];
+
+// get the data from the WindowedDataBuffer
+buffer.getData(target, Window.HANN);
+}}}
+
+
+*FFTDataBuffer*
+
+The FFTDataBuffer is an extension of the WindowedDataBuffer and can be used to computing the discrete Fourier transform of incoming data. Besides the capacity, the FFTDataBuffer also needs to know the sample rate of the incoming data to compute the FFT and calculate the magnitudes.
+
+{{{
+// create the FFTDataBuffer with the capacity and sample rate
+FFTDataBuffer.Float fft = new FFTDataBuffer.Float(1024, 512);
+
+...
+
+// add some data to the buffer
+fft.add(data);
+}}}
+
+By calling {{{fft.applyFFT()}}}, the FFT of the data will be computed.
+
+{{{
+// compute the FFT of the data
+fft.applyFFT();
+}}}
+
+The FFTDataBuffer applies by default a Hann window before computing the FFT. To change which window should be used, use {{{fft.setWindow(window)}}}. The FFTDataBuffer has some basic functions to retrieve the outcome of the computed FFT. Either get all bins, or the magnitude of one specific frequency.
+
+{{{
+// get all bins
+double[] bins = fft.getBins()
+}}}
+
+When the specified frequency is not in a separate bin, linear interpolation is used to calculate the magnitude from the two surrounding bins.
+
+{{{
+// get the magnitude of a specific frequency
+double magnitude = fft.getMagnitude(10);
+}}}
+
+When the FFT is computed the FFTDataBuffer also calculates the average magnitude. This can be retrieved with {{{fft.getAverageMagnitude()}}}. The average magnitude is calculate over all bins within the frequency range, which is normally set from 0 to sample rate/2. 
+This can be altered with {{{fft.setFrequencyRange(min, max)}}}, {{{fft.setMinFrequency(min)}}} and {{{fft.setMaxFrequency(max)}}}.

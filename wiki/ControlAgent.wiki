@@ -1,0 +1,21 @@
+#summary How to work with the ControlAgent
+#labels Phase-Implementation
+
+==Introduction==
+
+The !ControlAgent implements NeuroServer's Controller role. As it has no functions in NeuroServer it has none in !JavaNeuroClient. 
+
+==Details==
+
+The !ControlAgent extends the DefaultAgent which has some basic commands:
+ * `hello()`
+ * `getRole()`
+ * `getStatus()`
+ * `close()`
+
+You can create a !ControlAgent the same as EEGAgent and !DisplayAgent; with an hostname and port (both optional).
+
+{{{
+// create a new ControlAgent
+ControlAgent agent = new ControlAgent("localhost", 8336);
+}}}

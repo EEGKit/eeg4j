@@ -1,0 +1,184 @@
+#summary Internal workings of NIA
+
+==Introduction==
+
+First I have to say I am not completely sure about all the details, but most information you will find here are the results of analyzing the data coming from the NIA.
+
+OCZ's Neural Impuls Actuator is an HID Usb device which samples data from three electrodes in a headband. The electrode in the middle is a ground and the electrodes on the left and right are used for a bipolar measuring.
+
+All tools I used are written in Java and tested in [http://www.ubuntu.com/ Ubuntu] 9.10 (Karmic Koala) 64-bit, but should also work on a 32-bit system. For communicating with the NIA I used the [http://javax-usb.org/ JSR80] API. Check out the source for more detailed information.
+
+==Details==
+
+When reading data from the NIA you receive a 55 byte long record. According to NIA's HID specification this contains:
+  * 16 x 24 bit data (48 bytes)
+  * 3 x 16 bit data (6 bytes)
+  * 1 x  8 bit data (1 byte)
+
+_16 x 24 bit data (48 bytes)_<br/>
+These are the actual samples. Each sample is split into 3 bytes (little-endian). 
+
+_3 x 16 bit data (6 bytes)_<br/>
+Each one of these 16 bit data values is split into 2 bytes (little-endian). The first one never changes, I still have no idea where this is for, but the values seems to be the same at all devices I could get my hands on. The second one seems to fluctuate over time, sometimes increasing, sometimes decreasing. The last one is always increasing, with what seems to be a steady interval over time.
+
+_1 x 8 bit data (1 byte)_<br/>
+We know that this last byte is an indicator for the number of samples in the data we just read.
+
+Now fetching samples from the NIA is not that hard. Jus read 55 bytes from the Usb Device, get the number of packages and extract the sample values from the data you just read.
+
+In pseudocode:
+
+{{{
+data = read_data
+for i = 0:data[54] (zero based index)
+ get the 3 bytes for sample i
+ parse 3 bytes (little endian) into sample_value
+ store sample_value
+end
+}}}
+
+===Unique sample number based on sample counter===
+
+Now we have the samples, we also would like to give them a number, so we can place them at a certain position in time and keep track of samples we missed. This is where we could possibly use one or two of the 16 bit values.
+
+When working with EEG data you will probably want at least the following two properties: 
+  * *A*: receive the latest data as soon as possible.
+  * *B*: miss as little data as possible.
+
+When we look closer at the last 16 bit value (bytes 53 and 54), we see that it looks like some sort of timer or packet counter, which would be perfect for giving each sample a unique number. In one second of data, this value always increases with (around) 3906, which is actually the same value of the internal clock of the NIA which suggests that it samples at (around) 3906 samples per second.
+
+So lets say this value is NIA's internal sample_counter indicating the total number of samples the NIA has read, we can now give each sample a unique number. 
+_Note that the sample_counter has an overflow which should be taken in account._
+
+{{{
+sample_number = (sample_counter - number_of_samples) + sample_index.
+}}}
+
+Calculating the sample_number using this method works in most cases, but unfortunately it is not always consistent because of the number_of_samples we have read. An example (using actual data from the NIA), with on the left the sample_counter and on the right the number_of_samples.
+
+||  ||sample_counter	||	number_of_samples||
+||1:||52603		||	15               ||
+||2:||52615		||	12               ||
+||3:||52631		||	15               ||
+||4:||52642		||	12               ||
+
+When we would apply the formula for the sample_number we would get the following sample_numbers
+
+1: (52603 - 15) + sample_index<br/>
+52588, 52589, 52590, 52591, 52592, 52593, 52594, 52595, 52596, 52597, 52598, 52599, 52600, 52601, 52602
+
+2: (52615 - 12) + sample_index<br/>
+52603, 52604, 52605, 52606, 52607, 52608, 52609, 52610, 52611, 52612, 52613, 52614
+
+3: (52631 - 15) + sample_index<br/>
+52616, 52617, 52618, 52619, 52620, 52621, 52622, 52623, 52624, 52625, 52626, 52627, 52628, 52629, 52630
+
+4: (52642 - 12) + sample_index<br/>
+52630, 52631, 52632, 52633, 52634, 52635, 52636, 52637, 52638, 52639, 52640, 52641
+
+At 1 the last sample_number is 52602 and we continue with sample_number 52603 at 2, which is correct. But at 2 the last sample_number is 52614 while the first sample_number at 3 is 52616, we missed a sample, sample_number 52615. We could say that this sample is lost, and just report it, but this seems odd. The maximum number of samples the data can hold is 16 samples and we have only read 15, so there was room for the missing sample.
+
+But if we look furter, the last sample_number at 3 is 52630, while the first sample_number of 4 is also 52630, so we have counted a sample_number twice. Since 2 we have received 39 samples (12 + 15 + 12), and according to NIA's sample_counter there have been read 39 samples (52642 - 52603) since 2. So actually we did not miss any samples, we just received 1 sample a little later.
+
+===Unique sample number based on sample counter and miss counter===
+
+The formula for giving samples a unique sample_number based on the sample_counter is a good start, but it needs to be redefined to be more accurate. Since the other 16 bit value seems to fluctuate now and then, we might be able to use it. Below is the same example as before, with the second 16 bit value we called the miss_counter.
+
+||	||sample_counter	||number_of_samples	||miss_counter||
+||1:	||52603			||15			||56220	      ||
+||2:	||52615			||12			||56220       ||
+||3:	||52631			||15			||56221       ||
+||4:	||52642			||12			||56220       ||
+
+We know we had some troubles at 3, where we missed one sample_number and counted another twice. If we look at the miss_counter we see that at 3 it is increased by 1 and at 4 it decreased by 1. If we used the difference in the miss_counter as some kind of offset we could be more accurate in giving the sample a unique number.
+
+{{{
+delta_miss_counter = miss_counter - previous_miss_counter
+
+offset = offset + delta_miss_counter
+}}}
+
+||   ||sample_counter ||number_of_samples ||miss_counter ||delta_miss_counter ||offset ||
+||1: ||52603	      ||15		  ||56220	 ||0		      ||0      ||
+||2: ||52615	      ||12	          ||56220	 ||0		      ||0      ||
+||3: ||52631	      ||15		  ||56221	 ||1		      ||1      ||
+||4: ||52642	      ||12		  ||56220	 ||-1		      ||0      ||
+
+Now we can use the offset to calculate a more accurate sample_number.
+
+{{{
+sample_number = (sample_counter - offset - number_of_samples) + sample_index
+}}}
+
+1: (52603 - 0 - 15) + sample_index<br/>
+52588, 52589, 52590, 52591, 52592, 52593, 52594, 52595, 52596, 52597, 52598, 52599, 52600, 52601, 52602
+
+2: (52615 - 0 - 12) + sample_index<br/>
+52603, 52604, 52605, 52606, 52607, 52608, 52609, 52610, 52611, 52612, 52613, 52614
+
+3: (52631 - 1 - 15) + sample_index<br/>
+52615, 52616, 52617, 52618, 52619, 52620, 52621, 52622, 52623, 52624, 52625, 52626, 52627, 52628, 52629
+
+4: (52642 - 0 - 12) + sample_index<br/>
+52630, 52631, 52632, 52633, 52634, 52635, 52636, 52637, 52638, 52639, 52640, 52641
+
+===NIA's internal buffer===
+
+If we look at another set of data from the NIA we see something else.
+
+||   ||sample_counter ||number_of_samples ||miss_counter ||delta_miss_counter ||offset ||
+||1: ||51603          ||12		  ||56220	 ||0		      ||0      ||
+||2: ||51623	      ||16		  ||56224	 ||4		      ||4      ||
+||3: ||51634	      ||15		  ||56220	 ||-4		      ||0      ||
+||4: ||51650	      ||16		  ||56220	 ||0		      ||0      ||
+||5: ||51666	      ||16		  ||56220	 ||0		      ||0      ||
+
+Now at 2, there are 16 samples in the data, it is completely filled, so there is no room for any missed samples. But we see that the delta_miss_counter is 4 and that at 3 the delta_miss_counter is -4. From this we can conclude that NIA has some sort of internal buffer and tries to miss as little samples as possible (property B). But this also means that Nia is not always realtime, at 2 it is 4 samples behind the most recent sample.
+
+This actually holds for a lot of cases. Here is another example in which NIA tries to make up for 11 missed samples. It takes a while, but NIA does catch up again with the latest samples.
+
+||   ||sample_counter ||number_of_samples ||miss_counter ||delta_miss_counter ||offset || ||
+||1: ||64980	      ||12		  ||64828	||0		      ||0      || ||
+||2: ||65007	      ||16		  ||64839	||11		      ||11     || <- 11 samples behind||
+||3: ||65023	      ||16		  ||64839	||0		      ||11     || ||
+||4: ||65034	      ||16		  ||64834	||-5		      ||6      || ||
+||5: ||65046	      ||16		  ||64830	||-4		      ||2      || ||
+||6: ||65058	      ||14		  ||64828	||-2		      ||0	     || <- 0 samples behind||
+
+In order to also meet property A (receive the latest data as soon as possible), we must assume that this internal buffer has a fixed (not too large) size, so that at a certain point, when NIA gets to far behind, it has to catch up again with the latest samples and just drop all the missing sample values. Which means those samples are indead lost.
+
+||   ||sample_counter ||number_of_samples ||miss_counter ||delta_miss_counter ||offset ||
+||1: ||52994	      ||16		  ||56220	 ||0		      ||0      ||
+||2: ||53025	      ||16		  ||56235	 ||15		      ||15     ||
+||3: ||53041	      ||16		  ||56235	 ||0		      ||15     ||
+||4: ||53056	      ||16		  ||56234	 ||-1		      ||14     ||
+||5: ||53076	      ||2		  ||56252	 ||18		      ||?      ||
+
+When we look at the previous data set, which is also coming directly from NIA, we see that it misses 15 samples at 2. At 3 it receives 16 samples, but the delta_miss_counter is 0 so NIA is still 15 samples behind. At 4, the delta_miss_counter = -1 so NIA is now 14 sample values behind. But at 5 NIA reports that the data only contains 2 samples and the delta_miss_counter is now 18, which means NIA is now 32 samples behind.
+
+But why only send 2 samples if there still is room for 14 more. If we look at the difference in the sample_counter between 4 and 5, we see that NIA should have read 20 samples. And apparently 18 of them are gone missing. So this is actually the place where NIA drops all stored samples, and catches up with the newest sample values. In total we lost 18 + 14 = 32 samples. So we can assume that NIA has an internal buffer which can hold  at most 32 samples. Meaning that the maximum number of samples NIA can get behind is 32 samples, which is around 8.2ms.
+
+You can now calculate how many samples have gone missing.
+
+{{{
+missing_samples = (offset - (offset % 32))
+}}}
+
+And to keep up with the latest samples you have to take the internal buffer size in account.
+
+{{{
+offset = offset % 32
+}}}
+
+==Conclusions==
+
+  * NIA has an internal buffer of 32 samples.
+  * It is possible to give each sample a unique number.
+  * NIA has a maximum latency of 8.2 ms.
+
+  * Byte 55 indicates the number of samples.
+  * Byte 54 and 53 indicate the total number of samples read.
+  * Byts 52 and 52 indicate how many samples the data is behind / the latency of the samples.
+
+==Future work==
+Find out why NIA is working different on some systems, the delta_miss_counter is 0 while the delta_sample_counter indicated that there should be more samples. It could be NIA somehow throttles, sampling at a lower sample rate to meet the machines speed.

@@ -1,0 +1,52 @@
+#summary How to work with the DisplayAgent
+#labels Phase-Implementation
+
+==Introduction==
+
+The !DisplayAgent implements NeuroServer's display role. It offers functions to retrieve all clients, client headers and watch EEG clients. If the DisplayAgents receives EEG data send by NeuroServer is will create a NeuroServerPacket and send this to all NeuroServerPacketListeners which registered themselves as listener on the agent.
+
+==Details==
+
+The !DisplayAgent extends the DefaultAgent which has some basic commands: 
+ * `hello()`
+ * `getRole()`
+ * `getStatus()`
+ * `close()`
+
+The main function of the !DisplayAgent is to receive data from other clients which are also connected to NeuroServer and provide EEG data. A !DisplayAgent can be created with an hostname and port (both optional).
+
+{{{
+// create a new DisplayAgent
+DisplayAgent agent = new DisplayAgent("localhost", 8336);
+}}}
+
+To retrieve all clients who are currently connected to NeuroServer, just call `getStatus()`. The StatusReply contains the number of connected clients and which role each client has.
+
+{{{
+// get the status of NeuroServer
+StatusReply statusReply = agent.getStatus();
+}}}
+
+The !DisplayAgent can request for the EDF Header of a client which has an EEG role. The HeaderReply contains the EDFHeader.
+
+{{{
+// get the header of client 0
+HeaderReply headerReply = agent.getHeader(0);
+}}}
+
+When you want to receive data from one of the clients, implement NeuroServerPacketListener  , register as a listener on the !DisplayAgent and watch the client.
+
+{{{
+// register this class as listener
+agent.addPacketListener(this);
+
+// start watching client 0
+agent.watch(0);
+}}}
+
+{{{
+public void receivedPacket(NeuroServerPacket packet) {
+    // output the received packet
+    System.out.println(packet.toString());
+}
+}}}
